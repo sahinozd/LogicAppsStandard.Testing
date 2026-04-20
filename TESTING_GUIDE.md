@@ -1,4 +1,4 @@
-# Azure Logic Apps Standard — Workflow Testing Reference Guide
+# Azure Logic Apps Standard  -  Workflow Testing Reference Guide
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -20,8 +20,8 @@ This guide covers every Gherkin step available in the framework, using the actua
 
 The framework provides two classes of step definitions:
 
-- **`BaseStepDefinition`** — workflow trigger steps, action assertion steps, loop, scope, condition, switch, and correlated multi-workflow validation
-- **`BaseTransformationStepDefinition<TSource, TDestination>`** — extends `BaseStepDefinition` with steps for uploading payloads to Blob Storage, sending claim-check messages to Service Bus, and asserting on typed transformation output
+- **`BaseStepDefinition`**  -  workflow trigger steps, action assertion steps, loop, scope, condition, switch, and correlated multi-workflow validation
+- **`BaseTransformationStepDefinition<TSource, TDestination>`**  -  extends `BaseStepDefinition` with steps for uploading payloads to Blob Storage, sending claim-check messages to Service Bus, and asserting on typed transformation output
 
 All assertion steps use a **depth-first search** across the full action tree. An action inside a Try scope, a Condition branch, a ForEach iteration, or a nested loop is found without needing a path prefix. Use path navigation when you need to target a **specific structural location**, such as a particular loop iteration or a condition branch.
 
@@ -49,7 +49,7 @@ Scenario: Validate complete workflow with nested structures
     And The "Set variable" action has status "Succeeded"
 ```
 
-`Then The workflow executed these actions:` uses depth-first search — any action at any nesting depth is found without needing a path prefix.
+`Then The workflow executed these actions:` uses depth-first search  -  any action at any nesting depth is found without needing a path prefix.
 
 ### Triggering with a File
 
@@ -142,7 +142,7 @@ Available when your step definition class inherits from `BaseTransformationStepD
 | Step | Description |
 |---|---|
 | `Given A message with a data from the source system` | Initialises an empty `TSource` message object. |
-| `Given A file with a data from the source system` | Alternative phrasing — same behaviour. |
+| `Given A file with a data from the source system` | Alternative phrasing  -  same behaviour. |
 | `Given It has the following source data:` | Fills properties on the message using a `Field`/`Value` table. Supports dot-notation and indexed list notation e.g. `Items[0].Name`. |
 | `Given It has content from a file named "filename"` | Loads the source message by deserialising a JSON file from `TestData\`. |
 | `When The message payload is put in Storage Account container "container" with file name "filename"` | Serialises the message to JSON and uploads it to blob storage. Generates a correlation ID. |
@@ -184,7 +184,7 @@ And In "Try":
     | Until           | Succeeded |
 ```
 
-**ForEach — specific iteration:**
+**ForEach  -  specific iteration:**
 
 ```gherkin
 And In "Try.For each number[1]":
@@ -193,7 +193,7 @@ And In "Try.For each number[1]":
     | Variable testString2 value less than 3 | Succeeded |
 ```
 
-**ForEach — triple-nested, specific iterations:**
+**ForEach  -  triple-nested, specific iterations:**
 
 ```gherkin
 And In "Try.For each number[1].For each letter[2].For each character[3]":
@@ -201,7 +201,7 @@ And In "Try.For each number[1].For each letter[2].For each character[3]":
     | Set variable testString | Succeeded |
 ```
 
-**Until — specific iteration:**
+**Until  -  specific iteration:**
 
 ```gherkin
 And In "Try.Until[1]":
@@ -213,7 +213,7 @@ And In "Try.Until[1]":
     | Condition                       | Succeeded |
 ```
 
-**Until — triple-nested, specific iterations:**
+**Until  -  triple-nested, specific iterations:**
 
 ```gherkin
 And In "Try.Until[1].Until2[2].Until3[2]":
@@ -229,7 +229,7 @@ And In "Try.Until[1].Condition":
     | Set variable untilCompleted | Skipped |
 ```
 
-**Condition TRUE branch — path syntax:**
+**Condition TRUE branch  -  path syntax:**
 
 ```gherkin
 And In "Try.Condition in try.actions":
@@ -245,14 +245,14 @@ And In "Try.For each number[1].Variable testString2 value less than 3.actions":
     | Set variable testString2 true | Succeeded |
 ```
 
-**Condition FALSE branch (empty table — asserts the path is reachable):**
+**Condition FALSE branch (empty table  -  asserts the path is reachable):**
 
 ```gherkin
 And In "Try.For each number[1].Variable testString2 value less than 3.else":
     | StepName | Status |
 ```
 
-**Switch case — path syntax:**
+**Switch case  -  path syntax:**
 
 ```gherkin
 And In "Try.Switch.Default":
@@ -293,10 +293,10 @@ Any of the following steps populates an internal list of current workflow runs. 
 - Replaced when another cache-populating step executes
 - Disposed at scenario completion
 
-### Recommended Pattern — Trigger Once, Assert Many Times
+### Recommended Pattern  -  Trigger Once, Assert Many Times
 
 ```gherkin
-When Workflow "prc-nestedloops-and-do-until" is triggered    # 1 API call — cached
+When Workflow "prc-nestedloops-and-do-until" is triggered    # 1 API call  -  cached
 
 Then The workflow executed these actions:                     # uses cache
     | StepName             | Status    |
@@ -313,7 +313,7 @@ And All iterations of "For each number" executed:             # uses cache
     | For each letter | Succeeded |
 ```
 
-### Pattern to Avoid — Repeating Explicit Workflow Names
+### Pattern to Avoid  -  Repeating Explicit Workflow Names
 
 ```gherkin
 # Each line re-fetches the run and replaces the cache
@@ -614,22 +614,22 @@ Scenario: Validate complete workflow with nested structures
         | StepName         | Status    |
         | Condition in try | Succeeded |
 
-    # ===== Condition TRUE branch — explicit step =====
+    # ===== Condition TRUE branch  -  explicit step =====
     And In the "actions" branch of "Condition in try":
         | StepName                             | Status    |
         | Set variable testString in condition | Succeeded |
 
-    # ===== Condition TRUE branch — path syntax (equivalent) =====
+    # ===== Condition TRUE branch  -  path syntax (equivalent) =====
     And In "Try.Condition in try.actions":
         | StepName                             | Status    |
         | Set variable testString in condition | Succeeded |
 
-    # ===== Condition inside ForEach — TRUE branch =====
+    # ===== Condition inside ForEach  -  TRUE branch =====
     And In "Try.For each number[1].Variable testString2 value less than 3.actions":
         | StepName                      | Status    |
         | Set variable testString2 true | Succeeded |
 
-    # ===== Condition inside ForEach — FALSE branch =====
+    # ===== Condition inside ForEach  -  FALSE branch =====
     And In "Try.For each number[1].Variable testString2 value less than 3.else":
         | StepName | Status |
 
@@ -638,12 +638,12 @@ Scenario: Validate complete workflow with nested structures
         | StepName | Status    |
         | Switch   | Succeeded |
 
-    # ===== Switch case — explicit step =====
+    # ===== Switch case  -  explicit step =====
     And In the "Default" branch of "Switch":
         | StepName               | Status    |
         | Set variable in switch | Succeeded |
 
-    # ===== Switch case — path syntax (equivalent) =====
+    # ===== Switch case  -  path syntax (equivalent) =====
     And In "Try.Switch.Default":
         | StepName               | Status    |
         | Set variable in switch | Succeeded |
@@ -770,7 +770,7 @@ The framework prints all available action names to the test console output on fa
 1. Confirm all iteration indices are **1-based**: `[1]` not `[0]`
 2. Condition branches: `actions` (TRUE) and `else` (FALSE)
 3. Switch case names must match exactly as they appear in the workflow designer
-4. Check the test console output — available actions at the failing path segment are printed there
+4. Check the test console output  -  available actions at the failing path segment are printed there
 
 ### "Loop ran X times, but Y was expected"
 
