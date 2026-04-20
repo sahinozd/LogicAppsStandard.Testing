@@ -245,7 +245,7 @@ var workflows = await logicApp.GetWorkflowsAsync();
 // Find a specific workflow by name
 var workflow = workflows.FirstOrDefault(w => w.Name == "prc");
 
-// Get all runs for the workflow
+// Get all runs for the workflow (cached after first call)
 var runs = await workflow!.GetWorkflowRunsAsync();
 
 // Filter to succeeded runs only
@@ -254,8 +254,11 @@ var succeededRuns = runs.Where(r => r.Status == "Succeeded").ToList();
 // Get the most recent run
 var latestRun = runs.MaxBy(r => r.StartTime);
 
-// Get a run by correlation ID
+// Get runs by correlation ID
 var correlatedRun = runs.FirstOrDefault(r => r.CorrelationId == myCorrelationId);
+
+// Clear the cache and reload from Azure
+await workflow.ReloadAsync();
 ```
 
 ### Triggering a Workflow
@@ -263,66 +266,140 @@ var correlatedRun = runs.FirstOrDefault(r => r.CorrelationId == myCorrelationId)
 ```csharp
 var trigger = await workflow!.GetTriggerAsync();
 
-// Trigger without a body
+// Trigger without a body (e.g. recurrence workflows)
 await trigger.Run(null);
 
-// Trigger with a JSON body
+// Trigger with a JSON body (e.g. HTTP-triggered workflows)
 using var content = new StringContent("{\"key\":\"value\"}", new MediaTypeHeaderValue("application/json"));
 await trigger.Run(content);
+
+// Trigger with additional request headers
+var headers = new Dictionary<string, string> { { "x-custom-header", "value" } };
+await trigger.Run(content, headers);
 ```
 
 ### Navigating the Action Tree
 
+Actions at every nesting depth are returned by `GetWorkflowRunActionsAsync` as typed objects. The returned list contains only top-level actions; nested actions are reachable through the properties of their parent.
+
 ```csharp
 var run = runs.First();
 
-// Get top-level actions
+// Get top-level actions for this run
 var actions = await run.GetWorkflowRunActionsAsync();
 
-// Find any action by name anywhere in the tree (depth-first search)
-var transformActions = await run.FindActionByNameAsync("Transform source data type to target data type");
-var transformAction = transformActions?.FirstOrDefault();
+foreach (var action in actions)
+{
+    Console.WriteLine($"{action.DesignerName}: {action.Status}");
+    Console.WriteLine($"  Start: {action.StartTime}, End: {action.EndTime}");
+
+    // Read the raw action output (JToken)
+    if (action.Output != null)
+        Console.WriteLine($"  Output: {action.Output}");
+
+    // Read error information when the action failed
+    if (action.Error != null)
+        Console.WriteLine($"  Error: {action.Error.Code} - {action.Error.Message}");
+}
+```
+
+### Finding an Action Anywhere in the Tree
+
+`FindActionByNameAsync` performs a depth-first search across the entire action tree, including actions inside scopes, conditions, loop iterations, and switch cases.
+
+```csharp
+// Returns all actions matching the name, at any nesting depth
+var matchingActions = await run.FindActionByNameAsync("Transform source data type to target data type");
+var transformAction = matchingActions?.FirstOrDefault();
 
 Console.WriteLine($"Status: {transformAction?.Status}");
 Console.WriteLine($"Output: {transformAction?.Output}");
 ```
 
-### Reading Loop Iterations
+### Reading Actions Inside a Scope
+
+A `ScopeAction` (Try, Catch, Finally, or any named scope) exposes its children through the `Actions` property, which is populated when the parent run's actions are loaded.
 
 ```csharp
-var foreachAction = actions.OfType<ForEachAction>().FirstOrDefault(a => a.DesignerName == "For each item");
+var scopeAction = actions.OfType<ScopeAction>().FirstOrDefault(a => a.DesignerName == "Try");
 
-// Get all repetitions (iterations)
-var repetitions = await foreachAction!.GetRepetitionsAsync();
-
-foreach (var repetition in repetitions)
+foreach (var child in scopeAction!.Actions)
 {
-    var iterationActions = await repetition.GetWorkflowRunActionsAsync();
-    foreach (var action in iterationActions)
-    {
-        Console.WriteLine($"[{repetition.Index}] {action.DesignerName}: {action.Status}");
-    }
+    Console.WriteLine($"  {child.DesignerName}: {child.Status}");
 }
 ```
 
 ### Reading Condition Branches
 
+A `ConditionAction` exposes its true branch via `DefaultActions` and its false branch via `ElseActions`.
+
 ```csharp
 var conditionAction = actions.OfType<ConditionAction>().FirstOrDefault(a => a.DesignerName == "Check order value");
 
-// True branch
-var trueActions = await conditionAction!.GetTrueBranchActionsAsync();
+// True branch (condition evaluated to true)
+foreach (var child in conditionAction!.DefaultActions)
+    Console.WriteLine($"  True branch: {child.DesignerName}: {child.Status}");
 
-// False branch
-var falseActions = await conditionAction.GetFalseBranchActionsAsync();
+// False branch (condition evaluated to false)
+foreach (var child in conditionAction.ElseActions)
+    Console.WriteLine($"  False branch: {child.DesignerName}: {child.Status}");
+```
+
+### Reading Switch Cases
+
+A `SwitchAction` exposes its cases through the `Cases` property. Each `SwitchCase` has a `Name` and a list of `Actions`.
+
+```csharp
+var switchAction = actions.OfType<SwitchAction>().FirstOrDefault(a => a.DesignerName == "Route by tier");
+
+foreach (var switchCase in switchAction!.Cases)
+{
+    Console.WriteLine($"Case: {switchCase.Name}");
+    foreach (var child in switchCase.Actions)
+        Console.WriteLine($"  {child.DesignerName}: {child.Status}");
+}
+```
+
+### Reading ForEach Loop Iterations
+
+A `ForEachAction` exposes its completed iterations through the `Repetitions` property. Each `ForEachActionRepetition` holds the actions executed in that iteration.
+
+```csharp
+var foreachAction = actions.OfType<ForEachAction>().FirstOrDefault(a => a.DesignerName == "For each item");
+
+foreach (var repetition in foreachAction!.Repetitions)
+{
+    Console.WriteLine($"Iteration {repetition.Name}: {repetition.Status}");
+    foreach (var child in repetition.Actions)
+        Console.WriteLine($"  {child.DesignerName}: {child.Status}");
+}
+```
+
+### Reading Until Loop Iterations
+
+A `UntilAction` exposes its iterations through the `Repetitions` property. Each `UntilActionRepetition` holds the actions and iteration count for that cycle.
+
+```csharp
+var untilAction = actions.OfType<UntilAction>().FirstOrDefault(a => a.DesignerName == "Until");
+
+foreach (var repetition in untilAction!.Repetitions)
+{
+    Console.WriteLine($"Iteration {repetition.Name}: {repetition.Status} (count: {repetition.IterationCount})");
+    foreach (var child in repetition.Actions)
+        Console.WriteLine($"  {child.DesignerName}: {child.Status}");
+}
 ```
 
 ### Reading Workflow Run Trigger Information
 
 ```csharp
-var trigger = await run.GetWorkflowRunTriggerAsync();
-Console.WriteLine($"Trigger status: {trigger?.Status}");
-Console.WriteLine($"Trigger name: {trigger?.DesignerName}");
+var runTrigger = await run.GetWorkflowRunTriggerAsync();
+
+Console.WriteLine($"Trigger: {runTrigger?.DesignerName}");
+Console.WriteLine($"Status:  {runTrigger?.Status}");
+Console.WriteLine($"Start:   {runTrigger?.StartTime}");
+Console.WriteLine($"Input:   {runTrigger?.Input}");
+Console.WriteLine($"Output:  {runTrigger?.Output}");
 ```
 
 ---
