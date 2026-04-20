@@ -58,4 +58,4 @@ nunit-*.xml
 /.vs/slnx.sqlite
 /.vs/CopilotSnapshots/*
 /.vs/LogicAppStandardManagementFramework/CopilotIndices/*
-/.vs/ProjectEvaluation
+/.vs/ProjectEvaluation/*
