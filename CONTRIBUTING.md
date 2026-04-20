@@ -11,7 +11,7 @@ While contributions are appreciated, please understand:
 * There is **no guarantee** that contributions will be reviewed, accepted, or merged quickly
 * Some contributions may **not be incorporated at all**, depending on scope and priorities
 
-If you're okay with that—great, you're welcome to contribute 👍
+If you're okay with that - great, you're welcome to contribute 👍
 
 ---
 
@@ -92,4 +92,4 @@ Please describe:
 
 ## 🙏 Thanks
 
-Your time and effort are appreciated—even if your contribution isn't ultimately merged.
+Your time and effort are appreciated - even if your contribution isn't ultimately merged.
