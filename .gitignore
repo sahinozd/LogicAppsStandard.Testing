@@ -52,3 +52,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+/TestFramework.IntegrationTests/appsettings.local.json
+/Management.Tests/appsettings.local.json
+/.vs/LogicAppStandardManagementFramework.slnx/*
+/.vs/slnx.sqlite
