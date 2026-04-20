@@ -473,6 +473,19 @@ Scenario: Transform source message to destination message
     And Workflow step "Transform source data type to target data type" has transformed the data
     And The transformed data has "Status" with value "Open Sesame"
     And The transformed data has "Action" with value "OpenMagicGate()"
+
+    ##### Nested properties and iterations can be tested this way #####
+    # And The transformed data has "SomeProperty[0].SomeSubProperty[0]" with values
+    #		| Field         | Value                              |
+    #		| Field1	      | Some value 1 |
+    #		| Field2			  | Some value 2 |
+    #		| Field3			  | Some value 3 |
+    #		| Field4			  | Some value 4 |
+    #		| Field5			  | Some value 5 |
+    #		| Field6			  | Some value 6 |
+    #		| Field7			  | Some value 7 |
+    #		| Field8			  | Some value 8 |
+    #		| Field9			  | Some value 9 |
 ```
 
 ### Complex Nested Loop and Condition Scenarios
