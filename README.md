@@ -1,6 +1,6 @@
-# Logic Apps Standard — Integration Testing Framework
+# Logic Apps Standard  -  Integration Testing Framework
 
-A .NET testing framework for **Azure Logic Apps Standard** that provides an object-oriented C# API for interacting with Logic Apps at runtime and a Gherkin-based acceptance testing layer built on top of [Reqnroll](https://reqnroll.net/). It is designed to run as part of your DevOps deployment pipeline — after a deployment to a Development or Test environment — to perform full end-to-end integration testing directly against Azure.
+A .NET testing framework for **Azure Logic Apps Standard** that provides an object-oriented C# API for interacting with Logic Apps at runtime and a Gherkin-based acceptance testing layer built on top of [Reqnroll](https://reqnroll.net/). It is designed to run as part of your DevOps deployment pipeline  -  after a deployment to a Development or Test environment  -  to perform full end-to-end integration testing directly against Azure.
 
 ---
 
@@ -9,10 +9,11 @@ A .NET testing framework for **Azure Logic Apps Standard** that provides an obje
 1. [What This Framework Does](#what-this-framework-does)
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
 3. [Prerequisites and Configuration](#prerequisites-and-configuration)
-4. [IsMockingEnabled — Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
+4. [IsMockingEnabled  -  Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
 5. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
 6. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-7. [Unit Test Coverage](#unit-test-coverage)
+7. [Sample Workflow Definitions](#sample-workflow-definitions)
+8. [Unit Test Coverage](#unit-test-coverage)
 
 ---
 
@@ -20,7 +21,7 @@ A .NET testing framework for **Azure Logic Apps Standard** that provides an obje
 
 ### The Problem
 
-Azure Logic Apps Standard provides no first-class .NET API for interacting with workflow runs at runtime. When you want to test your integration logic after deployment, you are left writing raw HTTP calls to the Azure Management REST API, manually deserialising complex JSON, and building your own polling and retry logic. Testing nested structures — actions inside scopes, conditions, loops, switch cases — requires understanding deeply nested raw JSON responses. There is no object model, no abstraction, and no way to write readable, maintainable acceptance tests.
+Azure Logic Apps Standard provides no first-class .NET API for interacting with workflow runs at runtime. When you want to test your integration logic after deployment, you are left writing raw HTTP calls to the Azure Management REST API, manually deserialising complex JSON, and building your own polling and retry logic. Testing nested structures  -  actions inside scopes, conditions, loops, switch cases  -  requires understanding deeply nested raw JSON responses. There is no object model, no abstraction, and no way to write readable, maintainable acceptance tests.
 
 ### The Solution
 
@@ -28,7 +29,7 @@ This framework delivers two things:
 
 ---
 
-### 1. The Management Library — Object-Oriented Access to Logic Apps Standard
+### 1. The Management Library  -  Object-Oriented Access to Logic Apps Standard
 
 The `LogicApps.Management` library is a full object-oriented .NET model of Azure Logic Apps Standard. It wraps the Azure Management REST API and exposes everything you would want to interact with as strongly typed C# objects. The entire library is fully asynchronous.
 
@@ -37,31 +38,31 @@ The `LogicApps.Management` library is a full object-oriented .NET model of Azure
 - Retrieve a `LogicApp` instance representing your deployed Logic Apps Standard resource
 - List all `Workflow` objects within the app, retrieve their definitions, and invoke their triggers
 - Fetch `WorkflowRun` instances filtered by time range, correlation ID, or status
-- Navigate the complete action tree of any run — top-level actions, actions inside **Scope** containers (Try/Catch/Finally), branches of **Condition** actions (true and false), cases of **Switch** actions, and individual iterations of **ForEach** and **Until** loops — all through a clean object model
+- Navigate the complete action tree of any run  -  top-level actions, actions inside **Scope** containers (Try/Catch/Finally), branches of **Condition** actions (true and false), cases of **Switch** actions, and individual iterations of **ForEach** and **Until** loops  -  all through a clean object model
 - Find any action by name anywhere in the tree using a depth-first search, regardless of how deeply nested it is
 - Read action inputs, outputs, status, error information, and tracked properties
 
 Each action type is modelled with its own class: `ScopeAction`, `ConditionAction`, `SwitchAction`, `ForEachAction`, `UntilAction`, and the base `Action` for standard connectors. Repetitions within loops are themselves modelled as typed objects (`ForEachActionRepetition`, `UntilActionRepetition`), each capable of loading their own child actions on demand.
 
-This means that from C#, reading a run's data looks like navigating an object graph — not parsing raw JSON.
+This means that from C#, reading a run's data looks like navigating an object graph  -  not parsing raw JSON.
 
 ---
 
-### 2. The Specifications Layer — Gherkin-Based Acceptance Testing
+### 2. The Specifications Layer  -  Gherkin-Based Acceptance Testing
 
 The `LogicApps.TestFramework.Specifications` library wraps the Management library in a full set of Reqnroll step definitions, enabling business-readable Gherkin scenarios that test complete workflow chains end-to-end.
 
 **What this enables:**
 
-- **Trigger workflows** from test scenarios — by invoking the HTTP trigger directly, by uploading a payload to Azure Blob Storage and sending a claim-check message to Azure Service Bus, or by file-based input
-- **Wait for completion** — the framework polls automatically and caches the run once it completes, minimising API calls
-- **Assert on workflow execution** at any level of the action tree — top-level actions, deeply nested actions inside scopes and conditions, specific loop iterations, all iterations of a loop, switch case branches, and nested loops
+- **Trigger workflows** from test scenarios  -  by invoking the HTTP trigger directly, by uploading a payload to Azure Blob Storage and sending a claim-check message to Azure Service Bus, or by file-based input
+- **Wait for completion**  -  the framework polls automatically and caches the run once it completes, minimising API calls
+- **Assert on workflow execution** at any level of the action tree  -  top-level actions, deeply nested actions inside scopes and conditions, specific loop iterations, all iterations of a loop, switch case branches, and nested loops
 - **Validate data transformations** (XSLT, Liquid) by reading the action output and deserialising it into a strongly typed C# model for field-level assertions
-- **Validate correlated multi-workflow chains** — trigger a receive workflow and then validate all correlated processor and sender instances using the same correlation identifier that was set during the receive run
+- **Validate correlated multi-workflow chains**  -  trigger a receive workflow and then validate all correlated processor and sender instances using the same correlation identifier that was set during the receive run
 
 The step definitions maintain an internal context (the current workflow and its run list) that is automatically set when a workflow is triggered or when a named workflow step executes. All subsequent assertion steps in the scenario reuse this cached context, resulting in minimal API calls and fast test execution.
 
-For transformation testing specifically, the framework provides `BaseTransformationStepDefinition<TSource, TDestination>` — a generic base class that handles all the infrastructure (storage upload, service bus claim-check, run polling, output deserialisation) and requires the concrete test class only to implement a single method: how to deserialise the transformation output body into the destination type.
+For transformation testing specifically, the framework provides `BaseTransformationStepDefinition<TSource, TDestination>`  -  a generic base class that handles all the infrastructure (storage upload, service bus claim-check, run polling, output deserialisation) and requires the concrete test class only to implement a single method: how to deserialise the transformation output body into the destination type.
 
 ---
 
@@ -80,17 +81,17 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 
 **Where this framework is different:**
 
-1. **It runs against the real deployed environment.** Not local emulation, not mocked connectors. The workflow runs in Azure, against the real infrastructure — Service Bus, Storage Account, API Management, and downstream systems. You are testing what is actually deployed.
+1. **It runs against the real deployed environment.** Not local emulation, not mocked connectors. The workflow runs in Azure, against the real infrastructure  -  Service Bus, Storage Account, API Management, and downstream systems. You are testing what is actually deployed.
 
 2. **It is designed for your DevOps pipeline.** Every scenario is a NUnit test that produces a standard pass/fail result. Drop the test project into your Azure DevOps or GitHub Actions pipeline after the deployment step. If the tests pass, the deployment is verified. If they fail, the pipeline stops.
 
-3. **It provides a proper object model.** The Microsoft SDK does not give you a navigable object graph of a live workflow run. This framework does. Finding an action at any nesting depth, reading its output, checking its status — these are single method calls on strongly typed objects.
+3. **It provides a proper object model.** The Microsoft SDK does not give you a navigable object graph of a live workflow run. This framework does. Finding an action at any nesting depth, reading its output, checking its status  -  these are single method calls on strongly typed objects.
 
 4. **It supports real end-to-end chain validation.** Testing a receive-process-send chain across three workflows, where the processor has five correlated instances each with nested loops and condition branches, is expressed in a single readable Gherkin scenario. No Microsoft tool handles this.
 
-5. **It enables transformation testing against live data.** You can trigger a real transformation workflow with a real message, wait for it to complete, deserialise the XSLT or Liquid output into a typed C# model, and assert on individual fields — in a single test scenario. This is not possible with any Microsoft-provided tool.
+5. **It enables transformation testing against live data.** You can trigger a real transformation workflow with a real message, wait for it to complete, deserialise the XSLT or Liquid output into a typed C# model, and assert on individual fields  -  in a single test scenario. This is not possible with any Microsoft-provided tool.
 
-6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockingEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour — including send actions to SFTP servers, calls to APIs through API Management — without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
+6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockingEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
 
 **Bottom line:** Microsoft's tools are useful during development, locally, in VS Code. This framework is what you use after deployment, in your pipeline, to verify that the integration works end to end in a real environment.
 
@@ -159,7 +160,7 @@ The integration test project reads configuration from an `appsettings.json` file
 
 ---
 
-## IsMockingEnabled — Putting an Environment Under Test
+## IsMockingEnabled  -  Putting an Environment Under Test
 
 When running integration tests against a deployed Development or Test environment, you often do not want your workflows to call real downstream systems. Sending messages to an SFTP server, calling a production CRM API, or writing to a live database pollutes target systems with test data and creates unwanted side effects.
 
@@ -173,7 +174,7 @@ A Logic Apps Standard workflow parameter `IsMockingEnabled` (boolean) is read at
 - **Send workflows**: a condition on `IsMockingEnabled` skips the actual SFTP write, HTTP call, or queue send and instead routes to a no-op branch.
 - **Receive workflows**: a mocked trigger payload can be substituted when the flag is set.
 
-This means your integration tests can exercise the full workflow logic — transformation, routing, error handling, tracked properties — without any data reaching source or target systems. The test environment is fully isolated from an external perspective, but the workflow runs exactly as it would in production from an internal perspective.
+This means your integration tests can exercise the full workflow logic  -  transformation, routing, error handling, tracked properties  -  without any data reaching source or target systems. The test environment is fully isolated from an external perspective, but the workflow runs exactly as it would in production from an internal perspective.
 
 ### Configuration
 
@@ -473,19 +474,6 @@ Scenario: Transform source message to destination message
     And Workflow step "Transform source data type to target data type" has transformed the data
     And The transformed data has "Status" with value "Open Sesame"
     And The transformed data has "Action" with value "OpenMagicGate()"
-
-    ##### Nested properties and iterations can be tested this way #####
-    # And The transformed data has "SomeProperty[0].SomeSubProperty[0]" with values
-    #		| Field 			  | Value        |
-    #		| Field1			  | Some value 1 |
-    #		| Field2			  | Some value 2 |
-    #		| Field3			  | Some value 3 |
-    #		| Field4			  | Some value 4 |
-    #		| Field5			  | Some value 5 |
-    #		| Field6			  | Some value 6 |
-    #		| Field7			  | Some value 7 |
-    #		| Field8			  | Some value 8 |
-    #		| Field9			  | Some value 9 |
 ```
 
 ### Complex Nested Loop and Condition Scenarios
@@ -552,18 +540,164 @@ public class MyIntegrationStepDefinition : BaseStepDefinition;
 
 ---
 
+## Sample Workflow Definitions
+
+The `Sample workflow definitions` folder contains four ready-to-deploy Logic Apps Standard workflow JSON files. These are the same workflows that the integration tests in `TestFramework.IntegrationTests` are written against, so they serve as both a live reference for the framework's capabilities and a starting point for building your own workflows.
+
+### `rcv.json`  -  Recurrence-Triggered Receiver
+
+A stateful workflow triggered by a **Recurrence** timer. It reads a batch of items, writes each payload to Blob Storage, and puts a claim-check message on a Service Bus topic for downstream processing.
+
+```
+Recurrence (trigger)
+├── Initialize variable correlationId
+├── Initialize variable errorMessage
+├── Initialize variable sampleMessage
+├── Initialize variable counter
+├── Initialize variable
+├── Try (Scope)
+│   ├── Validate json schema
+│   ├── For each item in items
+│   │   ├── Increment variable counter
+│   │   ├── Write message payload to storage
+│   │   └── Send claim-check message to topic
+│   ├── Send success tracked properties to table storage
+│   └── Send success tracked properties to log analytics
+└── Catch (Scope)
+    ├── Filter errors
+    ├── Remove inputs property from errors
+    ├── For each (error loop)
+    └── Terminate
+```
+
+### `prc.json`  -  Service Bus–Triggered Processor
+
+A stateful workflow triggered by a **Service Bus message** arriving on a queue. It retrieves the payload from Blob Storage, applies an XSLT or Liquid transformation, writes the transformed payload back to storage, and forwards a new claim-check to the next queue.
+
+```
+Receive new claim-check message from queue (trigger)
+├── Initialize variable correlationId
+├── Initialize variable errorMessage
+├── Try (Scope)
+│   ├── Retrieve message payload from storage
+│   ├── Transform source data type to target data type
+│   ├── Write message payload to storage
+│   ├── Send claim-check message to queue
+│   ├── Complete claim-check message in queue
+│   └── Send success tracked properties to log analytics
+└── Catch (Scope)
+    ├── Filter errors
+    ├── Remove inputs property from errors
+    ├── Dead-letter claim-check message in queue
+    ├── Send failed tracked properties to log analytics
+    └── Terminate
+```
+
+### `snd.json`  -  Service Bus–Triggered Sender
+
+A stateful workflow triggered by a **Service Bus message** arriving on a queue. It retrieves the payload, posts it to an HTTP endpoint, inspects the HTTP status code with a **Switch** action, completes or dead-letters the claim-check accordingly, and emits tracked properties to Log Analytics.
+
+```
+Receive new claim-check message from queue (trigger)
+├── Initialize variable correlationId
+├── Initialize variable errorMessage
+├── Try (Scope)
+│   ├── Retrieve message payload from storage
+│   ├── Post to google.com api
+│   ├── Check http status code (Switch)
+│   │   ├── Http status 200 (success case)
+│   │   └── Default
+│   │       ├── Set variable errorMessage to http response body
+│   │       └── Throw exception
+│   ├── Complete claim-check message in queue
+│   └── Send success tracked properties to log analytics
+└── Catch (Scope)
+    ├── Filter errors
+    ├── Remove inputs property from errors
+    ├── Dead-letter claim-check message in queue
+    ├── Send failed tracked properties to log analytics
+    └── Terminate
+```
+
+### `prc-nestedloops-and-do-until.json`  -  Nested Loops and Do-Until Reference Workflow
+
+A stateful workflow designed specifically to demonstrate and test every nesting pattern supported by the framework: triple-nested **ForEach** loops, triple-nested **Until** loops, **Condition** actions inside both loop types, and a **Switch** action  -  all within a Try/Catch scope.
+
+```
+Recurrence (trigger)
+├── Initialize variables
+├── Set variable
+├── Try (Scope)
+│   ├── For each number (ForEach)
+│   │   ├── For each letter (ForEach)
+│   │   │   └── For each character (ForEach)
+│   │   │       └── Set variable testString
+│   │   └── Variable testString2 value less than 3 (Condition)
+│   │       ├── TRUE: Set variable testString2 true
+│   │       └── FALSE: (empty branch)
+│   ├── Until
+│   │   ├── Reset variable counter2
+│   │   ├── Set variable teststring until
+│   │   ├── Increment variable counter
+│   │   ├── Condition
+│   │   │   └── TRUE: Set variable untilCompleted
+│   │   └── Until2
+│   │       ├── Increment variable counter2
+│   │       ├── Reset variable counter3
+│   │       └── Until3
+│   │           └── Increment variable counter3
+│   ├── Condition in try
+│   │   └── TRUE: Set variable testString in condition
+│   └── Switch
+│       └── Default: Set variable in switch
+└── Catch (Scope)
+```
+
+This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in `TESTING_GUIDE.md`.
+
+---
+
 ## Unit Test Coverage
 
-The framework is fully covered by unit tests across two test projects.
+The framework is fully covered by unit tests across three test projects.
 
-**`LogicApps.Management.Repository.Tests`** covers the Service Bus message builder, HTTP client construction, authentication token handling, and blob storage request building.
+**`LogicApps.Management.Tests`** covers the core object model:
 
-**`LogicApps.TestFramework.Specifications.Tests`** covers:
+- `LogicApp`  -  factory creation, workflow enumeration, and initialisation
+- `Workflow`  -  run loading, trigger retrieval, and reload behaviour
+- `WorkflowRun`  -  action loading, trigger loading, correlation ID resolution, depth-first search via `FindActionByNameAsync`, and `Reload`
+- `WorkflowRunTrigger`  -  property mapping from API payloads and input/output loading
+- `WorkflowTrigger`  -  trigger URL construction, recurrence vs HTTP trigger routing, and `Run` execution
+- `WorkflowTriggerExecutionResponse`  -  response status and content handling
+- `BaseAction`  -  property mapping, input/output link resolution, and repetition count handling
+- `Action`  -  standard connector action construction
+- `ScopeAction`  -  child action collection population
+- `ConditionAction`  -  true (`DefaultActions`) and false (`ElseActions`) branch population
+- `SwitchAction`  -  case collection population
+- `SwitchCase`  -  case name and actions population
+- `ForEachAction`  -  repetition retrieval via `GetAllActionRepetitions`
+- `ForEachActionRepetition`  -  property mapping and repetition index handling
+- `UntilAction`  -  repetition retrieval via `GetAllActionRepetitions`
+- `UntilActionRepetition`  -  property mapping and iteration count handling
+- `ActionFactory`  -  action creation from workflow definition JSON for all supported action types
+- `ActionHelper`  -  linked input/output content resolution
 
-- `WorkflowRunValidation` — all validation methods including loop iteration count, actions in all iterations, actions in a specific iteration, nested loop validation, scope and branch child action validation, and single action status validation
-- `WorkflowRunNavigator` — depth-first action search, scope navigation, condition branch retrieval (true and false), switch case retrieval, ForEach and Until iteration access, and nested loop discovery
-- `ActionPathNavigator` — the full path syntax parser including simple names, iteration indices, condition `.actions` and `.else` branches, switch cases, nested paths, case-insensitive matching, and invalid path handling
-- `ClassHelper` — nested property setting with dot-notation paths, automatic instance creation for null intermediate objects, type conversion, nullable type handling, and list indexer support
-- `StringHelper` and `FileNameResolver` — string null normalisation and filename placeholder resolution
+**`LogicApps.Management.Repository.Tests`** covers the infrastructure layer:
 
-The unit tests run entirely in memory against in-process mock data and do not require any Azure connectivity. They can be executed in a standard `dotnet test` step with no additional setup.
+- `AzureHttpClient`  -  HTTP client construction and authenticated request dispatch
+- `AzureManagementRepository`  -  GET, POST, and paged response handling
+- `EntraTokenClient`  -  token acquisition and caching
+- `ServiceBusMessageBuilder`  -  claim-check message construction, correlation ID embedding, and custom property attachment
+- `ServiceBusMessageSender`  -  message dispatch to topics and queues
+- `BlobRequestBuilder`  -  blob upload request construction
+- `BlobStorageSender`  -  blob upload dispatch
+
+**`LogicApps.TestFramework.Specifications.Tests`** covers the Gherkin layer:
+
+- `WorkflowRunValidation`  -  all validation methods including loop iteration count, actions in all iterations, actions in a specific iteration, nested loop validation, scope and branch child action validation, and single action status validation
+- `WorkflowRunNavigator`  -  depth-first action search, scope navigation, condition branch retrieval (true and false), switch case retrieval, ForEach and Until iteration access, and nested loop discovery
+- `ActionPathNavigator`  -  the full path syntax parser including simple names, iteration indices, condition `.actions` and `.else` branches, switch cases, nested paths, case-insensitive matching, and invalid path handling
+- `ClassHelper`  -  nested property setting with dot-notation paths, automatic instance creation for null intermediate objects, type conversion, nullable type handling, and list indexer support
+- `StringHelper` and `FileNameResolver`  -  string null normalisation and filename placeholder resolution
+
+All three test projects run entirely in memory against in-process mock data and do not require any Azure connectivity. They can be executed in a standard `dotnet test` step with no additional setup.
