@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AnalysisLevel>latest-all</AnalysisLevel>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+		<WarningLevel>9999</WarningLevel>
+		<Configurations>Debug;Release;Local</Configurations>
+	</PropertyGroup>
+	<ItemGroup>
+	  <Compile Remove="NewFolder\**" />
+	  <EmbeddedResource Remove="NewFolder\**" />
+	  <None Remove="NewFolder\**" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="TESTING_GUIDE.md" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="NUnit" Version="4.5.1" />
+		<PackageReference Include="Pather.CSharp" Version="2.1.0" />
+		<PackageReference Include="Reqnroll" Version="3.3.4" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.6" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\Management\LogicApps.Management.csproj" />
+	</ItemGroup>
+</Project>

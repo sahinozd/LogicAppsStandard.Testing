@@ -1,0 +1,4 @@
+﻿using System.Diagnostics.CodeAnalysis;
+
+[assembly: SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Concrete List<T> properties are used intentionally on public model types to support Newtonsoft.Json deserialization and to allow consumers/tests to construct and mutate collections without requiring custom converters. Changing to interfaces would complicate deserialization and risk breaking existing callers.", Scope = "namespaceanddescendants", Target = "~N:LogicApps.Management.Models")]
+[assembly: SuppressMessage("Naming", "CA1716:Identifiers should not match keywords", Justification = "This type name intentionally matches the REST API schema ('Error') to allow direct mapping/deserialization from the management API responses. Renaming would require custom converters or DTO mapping and reduce maintainability.", Scope = "type", Target = "~T:LogicApps.Management.Models.RestApi.Error")]

@@ -1,0 +1,55 @@
+{
+  "variables": [
+    {
+      "name": "foreachloopcounter",
+      "type": "Array",
+      "value": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "subforeachloopletter",
+      "type": "Array",
+      "value": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ]
+    },
+    {
+      "name": "untilCounter",
+      "type": "Integer",
+      "value": 0
+    },
+    {
+      "name": "untilCompleted",
+      "type": "Boolean",
+      "value": false
+    },
+    {
+      "name": "testString",
+      "type": "String"
+    },
+    {
+      "name": "correlationId",
+      "type": "String",
+      "value": "d761efda-24c1-4316-a7c7-e9578b808836"
+    },
+    {
+      "name": "testString2",
+      "type": "String",
+      "value": "Just, because it can..."
+    },
+    {
+      "name": "errorMessage",
+      "type": "String",
+      "value": "Something went wrong"
+    }
+  ]
+}

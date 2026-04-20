@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "waitEndTime": "2026-04-01T10:45:53.5368868Z",
+    "startTime": "2026-04-01T10:45:53.5368868Z",
+    "endTime": "2026-04-01T10:46:12.2709004Z",
+    "status": "Succeeded",
+    "correlation": {
+      "clientTrackingId": "test-client-tracking-id"
+    },
+    "workflow": {
+      "id": "/workflows/test-workflow/versions/12345",
+      "name": "12345",
+      "type": "workflows/versions"
+    },
+    "trigger": {
+      "name": "Recurrence",
+      "startTime": "2026-04-01T10:45:53.5334156Z",
+      "endTime": "2026-04-01T10:45:53.533961Z",
+      "scheduledTime": "2026-04-01T10:45:52.9707209Z",
+      "originHistoryName": "test-origin-history",
+      "correlation": {
+        "clientTrackingId": "test-client-tracking-id"
+      },
+      "code": "OK",
+      "status": "Succeeded"
+    },
+    "outputs": {}
+  },
+  "id": "/workflows/test-workflow/runs/test-run-id",
+  "name": "test-run-id",
+  "type": "workflows/runs"
+}

@@ -1,0 +1,24 @@
+{
+  "properties": {
+    "inputsLink": {
+      "uri": "https://[logicapp_name].azurewebsites.net:443/runtime/webhooks/workflow/scaleUnits/prod-00/workflows/[guid]/runs/[run_id]/actions/Set_variable/contents/ActionInputs?api-version=2025-05-01&code=[code]]&se=2026-04-09T18%3A00%3A00.0000000Z&sp=%2Fruns%2F[run_id]%2Factions%2FSet_variable%2Fcontents%2FActionInputs%2Fread&sv=1.0&sig=[signature]",
+      "contentSize": 50
+    },
+    "outputsLink": {
+      "uri": "https://[logicapp_name].azurewebsites.net:443/runtime/webhooks/workflow/scaleUnits/prod-00/workflows/[guid]/runs/[run_id]/actions/Set_variable/contents/ActionOutputs?api-version=2025-05-01&code=[code]&se=2026-04-09T18%3A00%3A00.0000000Z&sp=%2Fruns%2F[run_id]%2Factions%2FSet_variable%2Fcontents%2FActionOutputs%2Fread&sv=1.0&sig=[signature]",
+      "contentSize": 59
+    },
+    "canResubmit": true,
+    "startTime": "2026-04-08T06:17:30.6991877Z",
+    "endTime": "2026-04-08T06:17:30.7214811Z",
+    "correlation": {
+      "actionTrackingId": "ba3b7a48-3d93-4fa1-81ca-1b78d6ce7a79",
+      "clientTrackingId": "[run_id]"
+    },
+    "status": "Succeeded",
+    "code": "NotSpecified"
+  },
+  "id": "/workflows/[workflow_name]/runs/[run_id]]/actions/Set_variable",
+  "name": "Set_variable",
+  "type": "workflows/runs/actions"
+}

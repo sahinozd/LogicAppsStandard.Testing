@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "inputsLink": {
+      "uri": "https://logic-app.azurewebsites.net:443/runtime/webhooks/workflow/scaleUnits/prod-00/workflows/123456/runs/78910/actions/Initialize_variables/contents/ActionInputs?api-version=2025-05-01&code=code&se=2026-04-13T11%3A00%3A00.0000000Z&sp=%2Fruns%2F78910%2Factions%2FInitialize_variables%2Fcontents%2FActionInputs%2Fread&sv=1.0&sig=signature",
+      "contentSize": 534
+    },
+    "canResubmit": true,
+    "startTime": "2026-04-01T10:45:54.5532096Z",
+    "endTime": "2026-04-01T10:45:54.5834513Z",
+    "correlation": {
+      "actionTrackingId": "d58af64d-6d6d-41eb-a657-b9b12afaad10",
+      "clientTrackingId": "78910"
+    },
+    "status": "Succeeded",
+    "code": "NotSpecified"
+  },
+  "id": "/workflows/prc-nestedloops-and-do-until/runs/78910/actions/Initialize_variables",
+  "name": "Initialize_variables",
+  "type": "workflows/runs/actions"
+}

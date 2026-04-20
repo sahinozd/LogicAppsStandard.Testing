@@ -1,0 +1,132 @@
+{
+  "value": [
+    {
+      "properties": {
+        "waitEndTime": "2026-04-08T06:17:30.4026783Z",
+        "startTime": "2026-04-08T06:17:30.4026783Z",
+        "endTime": "2026-04-08T06:17:51.7051643Z",
+        "status": "Succeeded",
+        "correlation": {
+          "clientTrackingId": "123456"
+        },
+        "workflow": {
+          "id": "/workflows/workflow/versions/123456",
+          "name": "123456",
+          "type": "workflows/versions"
+        },
+        "trigger": {
+          "name": "Recurrence",
+          "startTime": "2026-04-08T06:17:30.3978029Z",
+          "endTime": "2026-04-08T06:17:30.3985322Z",
+          "scheduledTime": "2026-04-08T06:17:30.2907917Z",
+          "originHistoryName": "123456",
+          "correlation": {
+            "clientTrackingId": "123456"
+          },
+          "code": "OK",
+          "status": "Succeeded"
+        },
+        "outputs": {}
+      },
+      "id": "/workflows/workflow/runs/123456",
+      "name": "123456",
+      "type": "workflows/runs"
+    },
+    {
+      "properties": {
+        "waitEndTime": "2026-04-07T09:03:52.6548658Z",
+        "startTime": "2026-04-07T09:03:52.6548658Z",
+        "endTime": "2026-04-07T09:04:15.4616161Z",
+        "status": "Succeeded",
+        "correlation": {
+          "clientTrackingId": "123456"
+        },
+        "workflow": {
+          "id": "/workflows/workflow/versions/123456",
+          "name": "123456",
+          "type": "workflows/versions"
+        },
+        "trigger": {
+          "name": "Recurrence",
+          "startTime": "2026-04-07T09:03:52.6508702Z",
+          "endTime": "2026-04-07T09:03:52.6516967Z",
+          "scheduledTime": "2026-04-07T09:03:52.5947518Z",
+          "originHistoryName": "123456",
+          "correlation": {
+            "clientTrackingId": "123456"
+          },
+          "code": "OK",
+          "status": "Succeeded"
+        },
+        "outputs": {}
+      },
+      "id": "/workflows/workflow/runs/123456",
+      "name": "123456",
+      "type": "workflows/runs"
+    },
+    {
+      "properties": {
+        "waitEndTime": "2026-04-07T09:01:00.0108325Z",
+        "startTime": "2026-04-07T09:01:00.0108325Z",
+        "endTime": "2026-04-07T09:01:43.3275052Z",
+        "status": "Succeeded",
+        "correlation": {
+          "clientTrackingId": "123456"
+        },
+        "workflow": {
+          "id": "/workflows/workflow/versions/123456",
+          "name": "123456",
+          "type": "workflows/versions"
+        },
+        "trigger": {
+          "name": "Recurrence",
+          "startTime": "2026-04-07T09:01:00.0059149Z",
+          "endTime": "2026-04-07T09:01:00.0069119Z",
+          "scheduledTime": "2026-04-07T09:00:59.8897457Z",
+          "originHistoryName": "123456",
+          "correlation": {
+            "clientTrackingId": "123456"
+          },
+          "code": "OK",
+          "status": "Succeeded"
+        },
+        "outputs": {}
+      },
+      "id": "/workflows/workflow/runs/123456",
+      "name": "123456",
+      "type": "workflows/runs"
+    },
+    {
+      "properties": {
+        "waitEndTime": "2026-04-07T09:00:57.9838371Z",
+        "startTime": "2026-04-07T09:00:57.9838371Z",
+        "endTime": "2026-04-07T09:01:43.6349732Z",
+        "status": "Succeeded",
+        "correlation": {
+          "clientTrackingId": "123456"
+        },
+        "workflow": {
+          "id": "/workflows/workflow/versions/123456",
+          "name": "123456",
+          "type": "workflows/versions"
+        },
+        "trigger": {
+          "name": "Recurrence",
+          "startTime": "2026-04-07T09:00:57.3692608Z",
+          "endTime": "2026-04-07T09:00:57.7162768Z",
+          "scheduledTime": "2026-04-07T09:00:56.8354971Z",
+          "originHistoryName": "123456",
+          "correlation": {
+            "clientTrackingId": "123456"
+          },
+          "code": "OK",
+          "status": "Succeeded"
+        },
+        "outputs": {}
+      },
+      "id": "/workflows/workflow/runs/123456",
+      "name": "123456",
+      "type": "workflows/runs"
+    }
+  ]
+}

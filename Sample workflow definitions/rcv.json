@@ -1,0 +1,361 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "Catch": {
+        "type": "Scope",
+        "actions": {
+          "Filter_errors": {
+            "type": "Query",
+            "inputs": {
+              "from": "@result('Try')",
+              "where": "@equals(item()['status'], 'Failed')"
+            }
+          },
+          "Remove_inputs_property_from_errors": {
+            "type": "Select",
+            "description": "Input data of an action may contain the actual message that is being processed. We remove it because Log Analytics has a max size for messages.",
+            "inputs": {
+              "from": "@body('Filter_errors')",
+              "select": "@removeProperty(item(), 'inputs')"
+            },
+            "runAfter": {
+              "Filter_errors": [
+                "Succeeded"
+              ]
+            }
+          },
+          "Terminate": {
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed",
+              "runError": {
+                "message": "@variables('errorMessage')"
+              }
+            },
+            "runAfter": {
+              "For_each": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "For_each": {
+            "type": "foreach",
+            "foreach": "@outputs('Remove_inputs_property_from_errors')['body']",
+            "actions": {
+              "Send_failed_tracked_properties_to_log_analytics": {
+                "type": "ApiConnection",
+                "inputs": {
+                  "host": {
+                    "connection": {
+                      "referenceName": "azureloganalyticsdatacollector"
+                    }
+                  },
+                  "method": "post",
+                  "body": "{\n    \"ProcessStep\": 1,\n    \"LogicAppName\": \"@{workflow()['name']}\",\n    \"ParentLogicAppName\": \"\",\n    \"WorkflowRunId\": \"@{workflow()['run']['name']}\",\n    \"CorrelationId\": \"@{variables('correlationId')}\",\n    \"CustomTrackedPropertyToLog\": \"someValue\",\n    \"Status\": \"Failed\",\n    \"ErrorMessage\": \"@{items('For_each')}\",\n    \"DateTime\": \"@{utcNow()}\"\n}",
+                  "headers": {
+                    "Log-Type": "sahin_custom"
+                  },
+                  "path": "/api/logs"
+                }
+              }
+            },
+            "runAfter": {
+              "Remove_inputs_property_from_errors": [
+                "SUCCEEDED"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Try": [
+            "FAILED",
+            "TIMEDOUT"
+          ]
+        }
+      },
+      "Initialize_variable_correlationId": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "correlationId",
+              "type": "string",
+              "value": "@{guid()}"
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_variable_sampleMessage": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Initialize_variable_errorMessage": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "errorMessage",
+              "type": "string",
+              "value": "An error has occured."
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_variable_counter": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Initialize_variable_sampleMessage": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "sampleMessage",
+              "type": "string",
+              "value": "{\n  \"menu\": {\n    \"id\": \"file\",\n    \"value\": \"File\",\n    \"popup\": {\n      \"menuitem\": [\n        {\n          \"value\": \"New\",\n          \"onclick\": \"CreateNewDoc()\"\n        },\n        {\n          \"value\": \"Open\",\n          \"onclick\": \"OpenDoc()\"\n        },\n        {\n          \"value\": \"Close\",\n          \"onclick\": \"CloseDoc()\"\n        }\n      ]\n    }\n  }\n}"
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Try": {
+        "type": "Scope",
+        "actions": {
+          "Validate_json_schema": {
+            "type": "ParseJson",
+            "inputs": {
+              "content": "@json(variables('sampleMessage'))",
+              "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "properties": {
+                  "menu": {
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "popup": {
+                        "properties": {
+                          "menuitem": {
+                            "items": [
+                              {
+                                "properties": {
+                                  "onclick": {
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "onclick"
+                                ],
+                                "type": "object"
+                              }
+                            ],
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "menuitem"
+                        ],
+                        "type": "object"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "value",
+                      "popup"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "menu"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "For_each_item_in_items": {
+            "type": "Foreach",
+            "foreach": "@body('Validate_json_schema')['menu']['popup']['menuitem']",
+            "actions": {
+              "Write_message_payload_to_storage": {
+                "type": "ServiceProvider",
+                "inputs": {
+                  "parameters": {
+                    "containerName": "demoworkload",
+                    "blobName": "@{variables('correlationId')}_@{variables('counter')}_rcv_sourcesystem_messagetype_@{utcNow('yyyyMMddTHHmmss')}.json",
+                    "content": "@items('For_each_item_in_items')",
+                    "overrideIfExists": "true"
+                  },
+                  "serviceProviderConfiguration": {
+                    "connectionName": "AzureBlob",
+                    "operationId": "uploadBlob",
+                    "serviceProviderId": "/serviceProviders/AzureBlob"
+                  }
+                },
+                "runAfter": {
+                  "Increment_variable_counter": [
+                    "SUCCEEDED"
+                  ]
+                }
+              },
+              "Send_claim-check_message_to_topic": {
+                "type": "ServiceProvider",
+                "inputs": {
+                  "parameters": {
+                    "entityName": "sbt-sourcesystem-out",
+                    "message": {
+                      "contentData": {
+                        "fileLocation": "@{body('Write_message_payload_to_storage')?['properties']?['blobPath']}",
+                        "sender": "@{workflow()['name']}"
+                      },
+                      "contentType": "application/json",
+                      "userProperties": {
+                        "messageType": "demoMessageType"
+                      },
+                      "correlationId": "@variables('correlationId')"
+                    }
+                  },
+                  "serviceProviderConfiguration": {
+                    "connectionName": "serviceBus",
+                    "operationId": "sendMessage",
+                    "serviceProviderId": "/serviceProviders/serviceBus"
+                  }
+                },
+                "runAfter": {
+                  "Write_message_payload_to_storage": [
+                    "SUCCEEDED"
+                  ]
+                }
+              },
+              "Increment_variable_counter": {
+                "type": "IncrementVariable",
+                "inputs": {
+                  "name": "counter",
+                  "value": 1
+                }
+              }
+            },
+            "runAfter": {
+              "Validate_json_schema": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "Send_success_tracked_properties_to_table_storage": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "tableName": "testsahin",
+                "entity": {
+                  "PartitionKey": "ubwspendinfo",
+                  "RowKey": "@{workflow()['run']['name']}",
+                  "ProcessStep": 1,
+                  "LogicAppName": "@{workflow()['name']}",
+                  "ParentLogicAppName": "",
+                  "WorkflowRunId": "@{workflow()['run']['name']}",
+                  "CorrelationId": "@{variables('correlationId')}",
+                  "CustomTrackedPropertyToLog": "someValue",
+                  "Status": "Succeeded",
+                  "ErrorMessage": null,
+                  "DateTime": "@{utcNow()}"
+                }
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "azureTables",
+                "operationId": "upsertEntity",
+                "serviceProviderId": "/serviceProviders/azureTables"
+              }
+            },
+            "runAfter": {
+              "For_each_item_in_items": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "Send_success_tracked_properties_to_log_analytics": {
+            "type": "ApiConnection",
+            "inputs": {
+              "host": {
+                "connection": {
+                  "referenceName": "azureloganalyticsdatacollector"
+                }
+              },
+              "method": "post",
+              "body": "{\n    \"ProcessStep\": 1,\n    \"LogicAppName\": \"@{workflow()['name']}\",\n    \"ParentLogicAppName\": \"\",\n    \"WorkflowRunId\": \"@{workflow()['run']['name']}\",\n    \"CorrelationId\": \"@{variables('correlationId')}\",\n    \"CustomTrackedPropertyToLog\": \"someValue\",\n    \"Status\": \"Succeeded\",\n    \"ErrorMessage\": null,\n    \"DateTime\": \"@{utcNow()}\"\n}",
+              "headers": {
+                "Log-Type": "sahin_custom"
+              },
+              "path": "/api/logs"
+            },
+            "runAfter": {
+              "Send_success_tracked_properties_to_table_storage": [
+                "SUCCEEDED"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Initialize_variable": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Initialize_variable_counter": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "counter",
+              "type": "integer",
+              "value": 0
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_variable_correlationId": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Initialize_variable": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "fluppie",
+              "type": "string",
+              "value": "@utcNow()"
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_variable_errorMessage": [
+            "SUCCEEDED"
+          ]
+        }
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "triggers": {
+      "Recurrence": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Month",
+          "interval": 3
+        }
+      }
+    }
+  },
+  "kind": "Stateful"
+}

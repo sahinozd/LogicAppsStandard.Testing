@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<AnalysisLevel>latest-all</AnalysisLevel>
+	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+	<WarningLevel>9999</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
+    <ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" />
+  </ItemGroup>
+</Project>

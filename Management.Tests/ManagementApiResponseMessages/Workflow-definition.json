@@ -1,0 +1,376 @@
+{
+  "id": "/subscriptions/subscription-id/resourceGroups/resource-group/providers/Microsoft.Web/sites/logic-app/workflows/workflow",
+  "name": "logic-app/workflow",
+  "type": "Microsoft.Web/sites/workflows",
+  "kind": "Stateful",
+  "location": "West Europe",
+  "properties": {
+    "files": {
+      "workflow.json": {
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "actions": {
+            "Initialize_variables": {
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "foreachloopcounter",
+                    "type": "array",
+                    "value": [
+                      1,
+                      2,
+                      3,
+                      4,
+                      5,
+                      6
+                    ]
+                  },
+                  {
+                    "name": "subforeachloopletter",
+                    "type": "array",
+                    "value": [
+                      "a",
+                      "b",
+                      "c",
+                      "d",
+                      "e"
+                    ]
+                  },
+                  {
+                    "name": "untilCounter",
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "name": "untilCompleted",
+                    "type": "boolean",
+                    "value": false
+                  },
+                  {
+                    "name": "testString",
+                    "type": "string"
+                  },
+                  {
+                    "name": "correlationId",
+                    "type": "string",
+                    "value": "@{guid()}"
+                  },
+                  {
+                    "name": "testString2",
+                    "type": "string",
+                    "value": "Just, because it can..."
+                  },
+                  {
+                    "name": "errorMessage",
+                    "type": "string",
+                    "value": "Something went wrong"
+                  },
+                  {
+                    "name": "subsubforeachcharacter",
+                    "type": "array",
+                    "value": [
+                      "!",
+                      "#",
+                      "$"
+                    ]
+                  },
+                  {
+                    "name": "untilCounter2",
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "name": "untilCounter3",
+                    "type": "integer",
+                    "value": 0
+                  }
+                ]
+              },
+              "runAfter": {}
+            },
+            "Try": {
+              "type": "Scope",
+              "actions": {
+                "For_each_number": {
+                  "type": "Foreach",
+                  "foreach": "@variables('foreachloopcounter')",
+                  "actions": {
+                    "For_each_letter": {
+                      "type": "Foreach",
+                      "foreach": "@variables('subforeachloopletter')",
+                      "actions": {
+                        "For_each_character": {
+                          "type": "Foreach",
+                          "foreach": "@variables('subsubforeachcharacter')",
+                          "actions": {
+                            "Set_variable_testString": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "testString",
+                                "value": "The loop value is: @{items('For_each_number')}@{items('For_each_letter')}@{items('For_each_character')}"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "Variable_testString2_value_less_than_3": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "less": [
+                              "@items('For_each_number')",
+                              3
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "Set_variable_testString2_true": {
+                          "type": "SetVariable",
+                          "inputs": {
+                            "name": "testString2",
+                            "value": "Het kan toch? @{items('For_each_number')}"
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {
+                          "Set_variable_testString2_false": {
+                            "type": "SetVariable",
+                            "inputs": {
+                              "name": "testString2",
+                              "value": "Het kan dus niet! @{items('For_each_number')}"
+                            }
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "For_each_letter": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "Until": {
+                  "type": "Until",
+                  "expression": "@equals(variables('untilCompleted'), bool(true))",
+                  "limit": {
+                    "count": 60,
+                    "timeout": "PT1H"
+                  },
+                  "actions": {
+                    "Increment_variable_counter": {
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "untilCounter",
+                        "value": 1
+                      },
+                      "runAfter": {
+                        "Set_variable_teststring_until": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Set_variable_teststring_until": {
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "testString",
+                        "value": "The until loop value is @{variables('untilCounter')}"
+                      },
+                      "runAfter": {
+                        "Reset_variable_counter2": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Condition": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@variables('untilCounter')",
+                              3
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {
+                        "Set_variable_untilCompleted": {
+                          "type": "SetVariable",
+                          "inputs": {
+                            "name": "untilCompleted",
+                            "value": true
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "runAfter": {
+                        "Increment_variable_counter": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Until2": {
+                      "type": "Until",
+                      "expression": "@greaterOrEquals(variables('untilCounter2'), 3)",
+                      "limit": {
+                        "count": 60,
+                        "timeout": "PT1H"
+                      },
+                      "actions": {
+                        "Increment_variable_counter2": {
+                          "type": "IncrementVariable",
+                          "inputs": {
+                            "name": "untilCounter2",
+                            "value": 1
+                          }
+                        },
+                        "Until3": {
+                          "type": "Until",
+                          "expression": "@greaterOrEquals(variables('untilCounter3'), 2)",
+                          "limit": {
+                            "count": 60,
+                            "timeout": "PT1H"
+                          },
+                          "actions": {
+                            "Increment_variable_counter3": {
+                              "type": "IncrementVariable",
+                              "inputs": {
+                                "name": "untilCounter3",
+                                "value": 1
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "Increment_variable_counter2": [
+                              "SUCCEEDED"
+                            ]
+                          }
+                        },
+                        "Reset_variable_counter3": {
+                          "type": "SetVariable",
+                          "inputs": {
+                            "name": "untilCounter3",
+                            "value": 0
+                          },
+                          "runAfter": {
+                            "Until3": [
+                              "SUCCEEDED"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "Reset_variable_counter2": {
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "untilCounter2",
+                        "value": 0
+                      },
+                      "runAfter": {
+                        "Until2": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "For_each_number": [
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Set_variable": [
+                  "SUCCEEDED"
+                ]
+              }
+            },
+            "Catch": {
+              "type": "Scope",
+              "actions": {
+                "Filter_errors": {
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@result('Try')",
+                    "where": "@equals(item()['status'], 'Failed')"
+                  }
+                },
+                "Remove_inputs_property_from_errors": {
+                  "type": "Select",
+                  "description": "Input data of an action may contain the actual message that is being processed. We remove it because Log Analytics has a max size for messages.",
+                  "inputs": {
+                    "from": "@body('Filter_errors')",
+                    "select": "@removeProperty(item(), 'inputs')"
+                  },
+                  "runAfter": {
+                    "Filter_errors": [
+                      "SUCCEEDED"
+                    ]
+                  }
+                },
+                "Terminate": {
+                  "type": "Terminate",
+                  "inputs": {
+                    "runStatus": "Failed",
+                    "runError": {
+                      "message": "@variables('errorMessage')"
+                    }
+                  },
+                  "runAfter": {
+                    "Remove_inputs_property_from_errors": [
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Try": [
+                  "TIMEDOUT",
+                  "FAILED"
+                ]
+              }
+            },
+            "Set_variable": {
+              "type": "SetVariable",
+              "inputs": {
+                "name": "correlationId",
+                "value": "dit is een test"
+              },
+              "runAfter": {
+                "Initialize_variables": [
+                  "SUCCEEDED"
+                ]
+              }
+            }
+          },
+          "outputs": {},
+          "triggers": {
+            "Recurrence": {
+              "type": "Recurrence",
+              "recurrence": {
+                "interval": 6,
+                "frequency": "Month",
+                "timeZone": "W. Europe Standard Time"
+              }
+            }
+          }
+        },
+        "kind": "Stateful"
+      }
+    },
+    "flowState": "Enabled",
+    "health": {
+      "state": "Healthy"
+    }
+  }
+}

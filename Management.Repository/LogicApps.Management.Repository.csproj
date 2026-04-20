@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<AnalysisLevel>latest-all</AnalysisLevel>
+	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+	<WarningLevel>9999</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="Workflow definitions\definition1.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+	  <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.6" />
+	  <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.6" />
+	  <PackageReference Include="MimeTypes" Version="2.5.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
+  </ItemGroup>
+</Project>

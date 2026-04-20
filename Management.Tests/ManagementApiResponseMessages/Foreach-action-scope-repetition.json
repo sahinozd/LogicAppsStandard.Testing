@@ -1,0 +1,29 @@
+{
+  "properties": {
+    "repetitionIndexes": [
+      {
+        "scopeName": "For_each_action_1",
+        "itemIndex": 0
+      },
+      {
+        "scopeName": "For_each_action_2",
+        "itemIndex": 1
+      },
+      {
+        "scopeName": "For_each_action_3",
+        "itemIndex": 2
+      }
+    ],
+    "startTime": "2026-04-02T16:27:27.422174Z",
+    "endTime": "2026-04-02T16:27:27.5542618Z",
+    "correlation": {
+      "actionTrackingId": "d713b1ff-736b-4c34-b05d-9083d2e33e24",
+      "clientTrackingId": "[run-id]"
+    },
+    "status": "Succeeded",
+    "code": "NotSpecified"
+  },
+  "id": "/workflows/workflow-name/runs/run-id/actions/For_each_action_3/scopeRepetitions/000000-000000-000000",
+  "name": "000000-000000-000000",
+  "type": "workflows/runs/actions/scopeRepetitions"
+}

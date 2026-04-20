@@ -1,0 +1,7 @@
+{
+  "id": "/subscriptions/subscription-id/resourceGroups/resource-group/providers/Microsoft.Web/sites/logic-app/workflows/workflow",
+  "name": "logic-app/workflow",
+  "type": "Microsoft.Web/sites/workflows",
+  "kind": "Stateful",
+  "location": "West Europe"
+}

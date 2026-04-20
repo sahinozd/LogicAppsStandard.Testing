@@ -1,0 +1,265 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "Catch": {
+        "type": "Scope",
+        "actions": {
+          "Dead-letter_claim-check_message_in_queue": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "messageId": "@triggerBody()?['messageId']",
+                "deadLetterReason": "An error occurred in logic app @{workflow()['name']}."
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "serviceBus",
+                "operationId": "deadLetterMessage",
+                "serviceProviderId": "/serviceProviders/serviceBus"
+              }
+            },
+            "runAfter": {
+              "Remove_inputs_property_from_errors": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "Filter_errors": {
+            "type": "Query",
+            "inputs": {
+              "from": "@result('Try')",
+              "where": "@equals(item()['status'], 'Failed')"
+            }
+          },
+          "Terminate": {
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed",
+              "runError": {
+                "message": "@variables('errorMessage')"
+              }
+            },
+            "runAfter": {
+              "Send_failed_tracked_properties_to_log_analytics": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "Remove_inputs_property_from_errors": {
+            "type": "Select",
+            "description": "Input data of an action may contain the actual message that is being processed. We remove it because Log Analytics has a max size for messages.",
+            "inputs": {
+              "from": "@body('Filter_errors')",
+              "select": "@removeProperty(item(), 'inputs')"
+            },
+            "runAfter": {
+              "Filter_errors": [
+                "SUCCEEDED"
+              ]
+            }
+          },
+          "Send_failed_tracked_properties_to_log_analytics": {
+            "type": "ApiConnection",
+            "inputs": {
+              "host": {
+                "connection": {
+                  "referenceName": "azureloganalyticsdatacollector"
+                }
+              },
+              "method": "post",
+              "body": "{\r\n    \"ProcessStep\": 3,\r\n    \"LogicAppName\": \"@{workflow()['name']}\",\r\n    \"ParentLogicAppName\": \"@{triggerBody()?['contentData']?['sender']}\",\r\n    \"WorkflowRunId\": \"@{workflow()['run']['name']}\",\r\n    \"CorrelationId\": \"@{variables('correlationId')}\",\r\n    \"Status\": \"Failed\",\r\n    \"ErrorMessage\": \"@{variables('errorMessage')}\",\r\n    \"ErrorMessageDetails\": @{body('Remove_inputs_property_from_errors')},\r\n    \"DateTime\": \"@{utcNow()}\"\r\n}",
+              "headers": {
+                "Log-Type": "demoWorkload",
+                "time-generated-field": "@{utcNow()}"
+              },
+              "path": "/api/logs"
+            },
+            "runAfter": {
+              "Dead-letter_claim-check_message_in_queue": [
+                "SUCCEEDED"
+              ]
+            },
+            "trackedProperties": "@json(action().inputs.body)"
+          }
+        },
+        "runAfter": {
+          "Try": [
+            "FAILED",
+            "TIMEDOUT"
+          ]
+        }
+      },
+      "Initialize_variable_correlationId": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "correlationId",
+              "type": "string",
+              "value": "@triggerBody()?['correlationId']"
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Initialize_variable_errorMessage": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "errorMessage",
+              "type": "string",
+              "value": "An error has occured."
+            }
+          ]
+        },
+        "runAfter": {
+          "Initialize_variable_correlationId": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Try": {
+        "type": "Scope",
+        "actions": {
+          "Check_http_status_code": {
+            "type": "Switch",
+            "expression": "@outputs('Post_to_google.com_api')?['statusCode']",
+            "default": {
+              "actions": {
+                "Set_variable_errorMessage_to_http_response_body": {
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "errorMessage",
+                    "value": "An error occured while posting to google."
+                  }
+                },
+                "Throw_exception": {
+                  "type": "Compose",
+                  "inputs": "@int('1')",
+                  "runAfter": {
+                    "Set_variable_errorMessage_to_http_response_body": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              }
+            },
+            "cases": {
+              "Http_status_200": {
+                "actions": {},
+                "case": 200
+              }
+            },
+            "runAfter": {
+              "Post_to_google.com_api": [
+                "SUCCEEDED",
+                "TIMEDOUT",
+                "FAILED"
+              ]
+            }
+          },
+          "Post_to_google.com_api": {
+            "type": "Http",
+            "inputs": {
+              "uri": "http://www.google.com",
+              "method": "POST",
+              "body": "@body('Retrieve_message_payload_from_storage')?['content']"
+            },
+            "runAfter": {
+              "Retrieve_message_payload_from_storage": [
+                "SUCCEEDED"
+              ]
+            },
+            "runtimeConfiguration": {
+              "contentTransfer": {
+                "transferMode": "Chunked"
+              }
+            }
+          },
+          "Retrieve_message_payload_from_storage": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "containerName": "demoworkload",
+                "blobName": "@triggerBody()?['contentData']?['fileLocation']",
+                "inferContentType": true
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "AzureBlob",
+                "operationId": "readBlob",
+                "serviceProviderId": "/serviceProviders/AzureBlob"
+              }
+            }
+          },
+          "Send_success_tracked_properties_to_log_analytics": {
+            "type": "ApiConnection",
+            "inputs": {
+              "host": {
+                "connection": {
+                  "referenceName": "azureloganalyticsdatacollector"
+                }
+              },
+              "method": "post",
+              "body": "{\r\n    \"ProcessStep\": 3,\r\n    \"LogicAppName\": \"@{workflow()['name']}\",\r\n    \"ParentLogicAppName\": \"@{triggerBody()?['contentData']?['sender']}\",\r\n    \"WorkflowRunId\": \"@{workflow()['run']['name']}\",\r\n    \"CorrelationId\": \"@{variables('correlationId')}\",\r\n    \"Status\": \"Succeeded\",\r\n    \"ErrorMessage\": null,\r\n    \"DateTime\": \"@{utcNow()}\"\r\n}",
+              "headers": {
+                "Log-Type": "demoWorkload",
+                "time-generated-field": "@{utcNow()}"
+              },
+              "path": "/api/logs"
+            },
+            "runAfter": {
+              "Complete_claim-check_message_in_queue": [
+                "SUCCEEDED"
+              ]
+            },
+            "trackedProperties": "@json(action().inputs.body)"
+          },
+          "Complete_claim-check_message_in_queue": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "messageId": "@triggerBody()?['messageId']"
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "serviceBus",
+                "operationId": "completeMessage",
+                "serviceProviderId": "/serviceProviders/serviceBus"
+              }
+            },
+            "runAfter": {
+              "Check_http_status_code": [
+                "SUCCEEDED"
+              ]
+            }
+          }
+        },
+        "runAfter": {
+          "Initialize_variable_errorMessage": [
+            "SUCCEEDED"
+          ]
+        }
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "triggers": {
+      "Receive_new_claim-check_message_from_queue": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "queueName": "sbq-targetsystem-datatype-in",
+            "isSessionsEnabled": false
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "serviceBus",
+            "operationId": "peekLockQueueMessages",
+            "serviceProviderId": "/serviceProviders/serviceBus"
+          }
+        },
+        "splitOn": "@triggerOutputs()?['body']"
+      }
+    }
+  },
+  "kind": "Stateful"
+}

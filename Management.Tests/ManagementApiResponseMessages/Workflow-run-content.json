@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "waitEndTime": "2026-04-01T10:45:53.5368868Z",
+    "startTime": "2026-04-01T10:45:53.5368868Z",
+    "endTime": "2026-04-01T10:46:12.2709004Z",
+    "status": "Succeeded",
+    "correlation": {
+      "clientTrackingId": "123456"
+    },
+    "workflow": {
+      "id": "/workflows/workflow/versions/78910",
+      "name": "78910",
+      "type": "workflows/versions"
+    },
+    "trigger": {
+      "name": "Recurrence",
+      "startTime": "2026-04-01T10:45:53.5334156Z",
+      "endTime": "2026-04-01T10:45:53.533961Z",
+      "scheduledTime": "2026-04-01T10:45:52.9707209Z",
+      "originHistoryName": "123456",
+      "correlation": {
+        "clientTrackingId": "123456"
+      },
+      "code": "OK",
+      "status": "Succeeded"
+    },
+    "outputs": {}
+  },
+  "id": "/workflows/workflow/runs/123456",
+  "name": "123456",
+  "type": "workflows/runs"
+}

@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/Integration test framework/">
+    <Project Path="TestFramework.Specifications/LogicApps.TestFramework.Specifications.csproj" />
+    <File Path="TESTING_GUIDE.md" />
+    <Project Path="TestFramework.IntegrationTests/LogicApps.TestFramework.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/Sample workflow definitions/">
+    <File Path="Sample workflow definitions/prc-nestedloops-and-do-until.json" />
+    <File Path="Sample workflow definitions/prc.json" />
+    <File Path="Sample workflow definitions/rcv.json" />
+    <File Path="Sample workflow definitions/snd.json" />
+  </Folder>
+  <Folder Name="/Unit tests/">
+    <Project Path="Management.Repository.Tests/LogicApps.Management.Repository.Tests.csproj" />
+    <Project Path="Management.Tests/LogicApps.Management.Tests.csproj" />
+    <Project Path="TestFramework.Specifications.Tests/LogicApps.TestFramework.Specifications.Tests.csproj" />
+  </Folder>
+  <Project Path="Management.Models/LogicApps.Management.Models.csproj" />
+  <Project Path="Management.Repository/LogicApps.Management.Repository.csproj" />
+  <Project Path="Management/LogicApps.Management.csproj" Id="2ac33e47-2bb3-4191-8901-f2588b479ca3" />
+</Solution>

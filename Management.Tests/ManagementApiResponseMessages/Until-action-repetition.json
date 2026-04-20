@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "repetitionIndexes": [
+      {
+        "scopeName": "Until",
+        "itemIndex": 0
+      },
+      {
+        "scopeName": "Until2",
+        "itemIndex": 1
+      }
+    ],
+    "trackingId": "9a51aae2-ddf8-44a5-bbb6-4c4a8889bc9e",
+    "iterationCount": 3,
+    "canResubmit": false,
+    "startTime": "2026-04-04T11:12:35.2505905Z",
+    "endTime": "2026-04-04T11:12:44.7934986Z",
+    "correlation": {
+      "actionTrackingId": "9a51aae2-ddf8-44a5-bbb6-4c4a8889bc9e",
+      "clientTrackingId": "[run-id]"
+    },
+    "status": "Succeeded",
+    "code": "NotSpecified"
+  },
+  "id": "/workflows/[workflow-name]/runs/[run-id]/actions/Until2/repetitions/000000",
+  "name": "000000",
+  "type": "workflows/runs/actions/repetitions"
+}

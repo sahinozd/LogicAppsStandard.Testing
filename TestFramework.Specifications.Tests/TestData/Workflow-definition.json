@@ -1,0 +1,141 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "actions": {
+      "Initialize_variables": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "correlationId",
+              "type": "string",
+              "value": "@{guid()}"
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Test_Action": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "https://example.com"
+        },
+        "runAfter": {
+          "Initialize_variables": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Test_Scope": {
+        "type": "Scope",
+        "actions": {
+          "Nested_Action": {
+            "type": "Http",
+            "inputs": {
+              "method": "POST",
+              "uri": "https://example.com/nested"
+            }
+          },
+          "Nested_Action_2": {
+            "type": "Http",
+            "inputs": {
+              "method": "PUT",
+              "uri": "https://example.com/nested2"
+            }
+          }
+        },
+        "runAfter": {
+          "Test_Action": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Test_Condition": {
+        "type": "If",
+        "actions": {
+          "Condition_True_Action": {
+            "type": "Http",
+            "inputs": {
+              "method": "GET",
+              "uri": "https://example.com/true"
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Condition_False_Action": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "https://example.com/false"
+              }
+            }
+          }
+        },
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@variables('correlationId')",
+                "test"
+              ]
+            }
+          ]
+        },
+        "runAfter": {
+          "Test_Scope": [
+            "Succeeded"
+          ]
+        }
+      },
+      "Test_Switch": {
+        "type": "Switch",
+        "expression": "@variables('correlationId')",
+        "cases": {
+          "Case_1": {
+            "case": "value1",
+            "actions": {
+              "Switch_Case1_Action": {
+                "type": "Http",
+                "inputs": {
+                  "method": "GET",
+                  "uri": "https://example.com/case1"
+                }
+              }
+            }
+          },
+          "Case_2": {
+            "case": "value2",
+            "actions": {
+              "Switch_Case2_Action": {
+                "type": "Http",
+                "inputs": {
+                  "method": "GET",
+                  "uri": "https://example.com/case2"
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "actions": {
+            "Switch_Default_Action": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "https://example.com/default"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Test_Condition": [
+            "Succeeded"
+          ]
+        }
+      }
+    }
+  }
+}
