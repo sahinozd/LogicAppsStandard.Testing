@@ -476,8 +476,8 @@ Scenario: Transform source message to destination message
 
     ##### Nested properties and iterations can be tested this way #####
     # And The transformed data has "SomeProperty[0].SomeSubProperty[0]" with values
-    #		| Field         | Value                              |
-    #		| Field1	      | Some value 1 |
+    #		| Field         | Value        |
+    #		| Field1			  | Some value 1 |
     #		| Field2			  | Some value 2 |
     #		| Field3			  | Some value 3 |
     #		| Field4			  | Some value 4 |
