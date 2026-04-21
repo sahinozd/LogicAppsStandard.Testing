@@ -10,7 +10,7 @@ A .NET testing framework for **Azure Logic Apps Standard** that provides an obje
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
 3. [Installing the Packages](#installing-the-packages)
 4. [Prerequisites and Configuration](#prerequisites-and-configuration)
-5. [IsMockingEnabled  -  Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
+5. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
 6. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
 7. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
 8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
@@ -94,7 +94,7 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 
 5. **It enables transformation testing against live data.** You can trigger a real transformation workflow with a real message, wait for it to complete, deserialise the XSLT or Liquid output into a typed C# model, and assert on individual fields  -  in a single test scenario. This is not possible with any Microsoft-provided tool.
 
-6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockingEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
+6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
 
 **Bottom line:** Microsoft's tools are useful during development, locally, in VS Code. This framework is what you use after deployment, in your pipeline, to verify that the integration works end to end in a real environment.
 
@@ -291,27 +291,289 @@ The integration test project reads configuration from an `appsettings.json` file
 
 ---
 
-## IsMockingEnabled  -  Putting an Environment Under Test
+## IsMockEnabled  -  Putting an Environment Under Test
 
 When running integration tests against a deployed Development or Test environment, you often do not want your workflows to call real downstream systems. Sending messages to an SFTP server, calling a production CRM API, or writing to a live database pollutes target systems with test data and creates unwanted side effects.
 
-The `IsMockingEnabled` flag is an application setting pattern that allows you to put the entire environment into a **test mode** without modifying any workflow definitions.
+The `IsMockEnabled` flag is an application setting pattern that allows you to put the entire environment into a **test mode** without modifying any workflow definitions.
 
 ### How It Works
 
-A Logic Apps Standard workflow parameter `IsMockingEnabled` (boolean) is read at runtime and used as a routing decision inside the workflow. Examples of how this is used in practice:
+A Logic Apps Standard workflow parameter `IsMockEnabled` (boolean) is read at runtime and used as a routing decision inside the workflow. Examples of how this is used in practice:
 
-- **API Management**: the `IsMockingEnabled` value is passed as a request header. An API Management policy reads this header and returns a mocked response when it is `true`, bypassing the real backend entirely.
-- **Send workflows**: a condition on `IsMockingEnabled` skips the actual SFTP write, HTTP call, or queue send and instead routes to a no-op branch.
+- **API Management**: the `IsMockEnabled` value is passed as a request header. An API Management policy reads this header and returns a mocked response when it is `true`, bypassing the real backend entirely.
+- **Send workflows**: a condition on `IsMockEnabled` skips the actual SFTP write, HTTP call, or queue send and instead routes to a no-op branch.
 - **Receive workflows**: a mocked trigger payload can be substituted when the flag is set.
 
 This means your integration tests can exercise the full workflow logic  -  transformation, routing, error handling, tracked properties  -  without any data reaching source or target systems. The test environment is fully isolated from an external perspective, but the workflow runs exactly as it would in production from an internal perspective.
 
 ### Configuration
 
-> This section is reserved for environment-specific setup examples, including Azure DevOps pipeline variable group configuration, pipeline YAML task samples, and per-environment appsettings overrides.
->
-> *(Examples will be added here.)*
+The steps below describe a complete end-to-end setup. The pipeline fragments shown are for **Azure DevOps YAML pipelines** and are illustrative  -  the exact implementation will vary depending on your project structure, service connection names, and parameter conventions.
+
+---
+
+#### Step 1  -  Provision the app setting in your infrastructure
+
+Add `isMockEnabled` to the Logic Apps Standard app settings in your Bicep infrastructure code. Set the default value to `'False'` so mocking is always off in production.
+
+```bicep
+resource logicAppsStandardConfig 'Microsoft.Web/sites/config@2025-03-01' = {
+  name: 'web'
+  parent: logicAppsStandard
+  properties: {
+    ftpsState: 'Disabled'
+    netFrameworkVersion: 'v8.0'
+    use32BitWorkerProcess: false
+    alwaysOn: true
+    functionsRuntimeScaleMonitoringEnabled: true
+    vnetPrivatePortsCount: 2
+    functionAppScaleLimit: int(Configuration.integration.workload.maxScaleInstances!)
+    healthCheckPath: '/api/chk-health/triggers/Request/invoke?api-version=2022-05-01'
+    minimumElasticInstanceCount: int(Configuration.integration.workload.maxScaleInstances!)
+    appSettings: allEnvironmentVariables  // merged with the entry below
+    connectionStrings: []
+    cors: {
+      allowedOrigins: [
+        environment().portal
+      ]
+      supportCredentials: false
+    }
+  }
+}
+```
+
+In `allEnvironmentVariables`, include:
+
+```bicep
+{
+  name: 'isMockEnabled'
+  value: 'False'
+}
+```
+
+---
+
+#### Step 2  -  Reference the app setting in the Logic Apps parameters
+
+In the Logic Apps Standard `parameters.json`, add an `IsMockEnabled` entry that reads its value from the app setting at runtime:
+
+```json
+"IsMockEnabled": {
+  "type": "String",
+  "value": "@appsetting('isMockEnabled')"
+}
+```
+
+This makes `IsMockEnabled` available as a workflow parameter throughout all workflows in the Logic App, without hardcoding the value in the workflow definition.
+
+---
+
+#### Step 3  -  Implement IsMockEnabled in your workflows
+
+There are two patterns depending on how the downstream system is called.
+
+**Pattern A  -  API Management (pass the flag as a request header)**
+
+When calling a backend through Azure API Management, pass `IsMockEnabled` as a custom request header. The API Management policy inspects the header and returns a mocked response when it is `True`, bypassing the real backend call entirely.
+
+![Logic App action passing MockingEnabled header to API Management](Readme.attachments/ismockenabled-api-header.png)
+
+The corresponding API Management inbound policy:
+
+```xml
+<choose>
+  <when condition="@(context.Request.Headers.GetValueOrDefault(&quot;MockingEnabled&quot;, &quot;False&quot;)
+                    .Equals(&quot;True&quot;, StringComparison.OrdinalIgnoreCase))">
+    <return-response>
+      <set-status code="200" reason="OK" />
+      <set-header name="Content-Type" exists-action="override">
+        <value>application/json</value>
+      </set-header>
+      <set-body>{"successful": true}</set-body>
+    </return-response>
+  </when>
+  <when condition="@(context.Request.Headers.GetValueOrDefault(&quot;MockingEnabled&quot;, &quot;False&quot;)
+                    .Equals(&quot;False&quot;, StringComparison.OrdinalIgnoreCase))">
+    <!-- Acquire token and call the real backend -->
+    <send-request ignore-error="true" timeout="20"
+                  response-variable-name="bearerToken" mode="new">
+      <set-url>#{backend_url}#</set-url>
+      <set-method>POST</set-method>
+      <set-header name="Content-Type" exists-action="override">
+        <value>application/x-www-form-urlencoded</value>
+      </set-header>
+      <set-body>#{token_request_body}#</set-body>
+    </send-request>
+    <!-- ... rest of real backend call ... -->
+  </when>
+</choose>
+```
+
+**Pattern B  -  Condition in the workflow (for protocols where a header cannot be passed)**
+
+When calling a system that does not support passing a custom header  -  for example SFTP, FTP, or a direct database connector  -  use a **Condition** action in the workflow itself. The `True` branch skips the actual action; the `False` branch executes it normally.
+
+![Logic App condition checking IsMockEnabled](Readme.attachments/ismockenabled-condition.png)
+
+The condition expression evaluates `bool(parameters('IsMockEnabled'))` against `true`. When mocking is enabled, the `True` branch contains a no-op action (or nothing at all). This ensures the real connector action is never executed during test runs, so no test data reaches the target system.
+
+---
+
+#### Step 4  -  Replace appsettings.json values during the pipeline
+
+The integration test project reads its configuration from `appsettings.json` using the `#{...}#` token replacement syntax (see the [appsettings.json section](#appsettingsjson) for all keys). In your Azure DevOps pipeline, use a token replacement task in the deployment stage to fill in the correct values for the target environment before running the tests.
+
+Ensure that at minimum the following values are set for the environment under test:
+
+- `ClientId`, `ClientSecret`, `TenantId`  -  the Entra ID App Registration credentials
+- `SubscriptionId`, `ResourceGroup`, `LogicAppName`  -  scopes the framework to the correct Logic App
+- `ServiceBusNamespace`, `StorageAccount`  -  point to the Service Bus and Storage Account for the test environment
+
+---
+
+#### Step 5  -  Enable mocking before running the tests
+
+Before executing the integration tests, set the `isMockEnabled` app setting to `True` using the Azure Management API. The `set.mocking.ps1` script at the root of this repository handles this.
+
+Azure DevOps pipeline task:
+
+```yaml
+- task: AzurePowerShell@5
+  displayName: 'Enable mocking'
+  inputs:
+    azureSubscription: '${{ parameters.AzureDevOpsServiceConnection }}'
+    azurePowerShellVersion: 'LatestVersion'
+    pwsh: true
+    ScriptType: 'FilePath'
+    ScriptPath: 'set.mocking.ps1'
+    ScriptArguments: >-
+      -EnableMocking $True
+      -LogicAppName "$(LogicAppName)"
+      -ResourceGroupName "$(ResourceGroupName)"
+      -SubscriptionId "$(SubscriptionId)"
+```
+
+The `set.mocking.ps1` script uses the Azure Management REST API to patch only the `isMockEnabled` app setting without overwriting any other settings:
+
+```powershell
+param (
+    [Parameter()]
+    [string]
+    $AppSettingName = "isMockEnabled",
+
+    [Parameter()]
+    [Boolean]
+    $EnableMocking = $true,
+
+    [Parameter(Mandatory = $True)]
+    [string]
+    $LogicAppName,
+
+    [Parameter(Mandatory = $True)]
+    [string]
+    $ResourceGroupName,
+
+    [Parameter(Mandatory = $true)]
+    [string]
+    $SubscriptionId
+)
+
+$managementUri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName" +
+                 "/providers/Microsoft.Web/sites/$LogicAppName/config/appsettings?api-version=2024-11-01"
+
+$accessToken = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/' -AsSecureString).Token
+$headers = @{
+    'Authorization' = "Bearer $(ConvertFrom-SecureString $accessToken -AsPlainText)"
+    'Content-Type'  = "application/json"
+}
+
+$appSettingsBody = @{
+    properties = @{
+        $AppSettingName = "$($EnableMocking)"
+    }
+}
+
+$jsonBody = $appSettingsBody | ConvertTo-Json
+
+Write-Output "Invoking management uri: $managementUri"
+
+try {
+    Invoke-RestMethod -Method PATCH -Uri $managementUri -Headers $headers -Body $jsonBody `
+                      -ErrorAction Stop -ErrorVariable appSettingsError
+}
+catch {
+    Write-Output "Failed to set app setting $AppSettingName for $LogicAppName."
+    Write-Output $appSettingsError
+}
+```
+
+The script is included in the repository as [Readme.attachments/set.mocking.ps1][Readme.attachments/set.mocking.ps1].
+
+---
+
+#### Step 6  -  Run the integration tests
+
+Execute the integration test project. The framework connects to the deployed Logic App, sends messages, waits for workflow runs to complete, and asserts on the results.
+
+```yaml
+- task: DotNetCoreCLI@2
+  condition: succeededOrFailed()
+  displayName: 'Integration tests'
+  inputs:
+    command: 'test'
+    projects: '$(Build.SourcesDirectory)/path/to/YourIntegrationTests.csproj'
+    arguments: >-
+      --configuration Release
+      --collect "Code coverage"
+    testRunTitle: 'Integration Tests - $(StageName)'
+```
+
+---
+
+#### Step 7  -  Disable mocking after the tests
+
+Always disable mocking after the test run, regardless of whether the tests passed or failed. This ensures the environment is not left in test mode.
+
+```yaml
+- task: AzurePowerShell@5
+  displayName: 'Disable mocking'
+  condition: always()    # run even if tests failed
+  inputs:
+    azureSubscription: '${{ parameters.AzureDevOpsServiceConnection }}'
+    azurePowerShellVersion: 'LatestVersion'
+    pwsh: true
+    ScriptType: 'FilePath'
+    ScriptPath: 'set.mocking.ps1'
+    ScriptArguments: >-
+      -EnableMocking $False
+      -LogicAppName "$(LogicAppName)"
+      -ResourceGroupName "$(ResourceGroupName)"
+      -SubscriptionId "$(SubscriptionId)"
+```
+
+> The `condition: always()` is important. Without it, a test failure would skip the disable step and leave the environment in mocked mode permanently.
+
+---
+
+#### Step 8  -  Typical pipeline structure
+
+A complete Azure DevOps pipeline that incorporates deployment and integration testing typically looks like this, with a dedicated stage per environment:
+
+![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](Readme.attachments/pipeline-run.png)
+
+![Stage with enable and disable mocking. In between the tests run](Readme.attachments/pipeline-run-2.png)
+
+![In the Tests section of the pipeline the integration tests are being shown](Readme.attachments/pipeline-run-3.png)
+
+Each environment stage (Ontwikkel, Test, Acceptatie) follows the same sequence of jobs:
+
+1. **Deploy**  -  deploy the Logic Apps Standard zip package and infrastructure
+2. **Prepare tests**  -  replace `appsettings.json` tokens and enable mocking
+3. **Execute tests**  -  run the integration test project
+4. **Teardown**  -  disable mocking
+
+This pattern ensures that every deployment to every environment is immediately verified by the full integration test suite before promotion to the next stage.
 
 ---
 
