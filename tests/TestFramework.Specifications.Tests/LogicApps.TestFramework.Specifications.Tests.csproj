@@ -28,18 +28,27 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
-    <ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" />
-    <ProjectReference Include="..\Management\LogicApps.Management.csproj" />
+	<ProjectReference Include="..\..\source\Management.Models\LogicApps.Management.Models.csproj" />
+	<ProjectReference Include="..\..\source\Management.Repository\LogicApps.Management.Repository.csproj" />
+	<ProjectReference Include="..\..\source\Management\LogicApps.Management.csproj" />
+	<ProjectReference Include="..\..\source\TestFramework.Specifications\LogicApps.TestFramework.Specifications.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Workflow definitions\definition1.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+	<None Update="Workflow definitions\definition1.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
   </ItemGroup>
   <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+	<None Update="appsettings.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+  </ItemGroup>
+  <ItemGroup>
+	<None Update="TestData\Workflow-definition.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	<None Update="TestData\Workflow-run-content.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
   </ItemGroup>
 </Project>

@@ -377,7 +377,7 @@ There are two patterns depending on how the downstream system is called.
 
 When calling a backend through Azure API Management, pass `IsMockEnabled` as a custom request header. The API Management policy inspects the header and returns a mocked response when it is `True`, bypassing the real backend call entirely.
 
-![Logic App action passing MockingEnabled header to API Management](Readme.attachments/ismockenabled-api-header.png)
+![Logic App action passing MockingEnabled header to API Management](extras/ismockenabled-api-header.png)
 
 The corresponding API Management inbound policy:
 
@@ -414,7 +414,7 @@ The corresponding API Management inbound policy:
 
 When calling a system that does not support passing a custom header  -  for example SFTP, FTP, or a direct database connector  -  use a **Condition** action in the workflow itself. The `True` branch skips the actual action; the `False` branch executes it normally.
 
-![Logic App condition checking IsMockEnabled](Readme.attachments/ismockenabled-condition.png)
+![Logic App condition checking IsMockEnabled](extras/ismockenabled-condition.png)
 
 The condition expression evaluates `bool(parameters('IsMockEnabled'))` against `true`. When mocking is enabled, the `True` branch contains a no-op action (or nothing at all). This ensures the real connector action is never executed during test runs, so no test data reaches the target system.
 
@@ -446,7 +446,7 @@ Azure DevOps pipeline task:
     azurePowerShellVersion: 'LatestVersion'
     pwsh: true
     ScriptType: 'FilePath'
-    ScriptPath: 'set.mocking.ps1'
+    ScriptPath: 'extras/set.mocking.ps1'
     ScriptArguments: >-
       -EnableMocking $True
       -LogicAppName "$(LogicAppName)"
@@ -508,7 +508,7 @@ catch {
 }
 ```
 
-The script is included in the repository as [Readme.attachments/set.mocking.ps1][Readme.attachments/set.mocking.ps1].
+The script is included in the repository as [extras/set.mocking.ps1](extras/set.mocking.ps1).
 
 ---
 
@@ -544,7 +544,7 @@ Always disable mocking after the test run, regardless of whether the tests passe
     azurePowerShellVersion: 'LatestVersion'
     pwsh: true
     ScriptType: 'FilePath'
-    ScriptPath: 'set.mocking.ps1'
+    ScriptPath: 'extras/set.mocking.ps1'
     ScriptArguments: >-
       -EnableMocking $False
       -LogicAppName "$(LogicAppName)"
@@ -560,11 +560,11 @@ Always disable mocking after the test run, regardless of whether the tests passe
 
 A complete Azure DevOps pipeline that incorporates deployment and integration testing typically looks like this, with a dedicated stage per environment:
 
-![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](Readme.attachments/pipeline-run.png)
+![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](extras/pipeline-run.png)
 
-![Stage with enable and disable mocking. In between the tests run](Readme.attachments/pipeline-run-2.png)
+![Stage with enable and disable mocking. In between the tests run](extras/pipeline-run-2.png)
 
-![In the Tests section of the pipeline the integration tests are being shown](Readme.attachments/pipeline-run-3.png)
+![In the Tests section of the pipeline the integration tests are being shown](extras/pipeline-run-3.png)
 
 The environment stages Development and Test follow the same sequence of jobs:
 

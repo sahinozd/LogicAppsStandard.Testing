@@ -66,8 +66,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" />
-    <ProjectReference Include="..\Management\LogicApps.Management.csproj" />
+    <ProjectReference Include="..\..\source\Management.Repository\LogicApps.Management.Repository.csproj" />
+    <ProjectReference Include="..\..\source\Management\LogicApps.Management.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">
