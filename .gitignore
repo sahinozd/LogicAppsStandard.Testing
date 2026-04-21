@@ -56,3 +56,6 @@ nunit-*.xml
 /Management.Tests/appsettings.local.json
 /.vs/LogicAppStandardManagementFramework.slnx/*
 /.vs/slnx.sqlite
+/.vs/CopilotSnapshots/*
+/.vs/LogicAppStandardManagementFramework/CopilotIndices/*
+/.vs/ProjectEvaluation/*
