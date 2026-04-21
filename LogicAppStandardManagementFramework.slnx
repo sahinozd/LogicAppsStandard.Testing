@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/Integration test framework/">
     <Project Path="source/TestFramework.Specifications/LogicApps.TestFramework.Specifications.csproj" />
-    <File Path="TESTING_GUIDE.md" />
     <Project Path="tests/TestFramework.IntegrationTests/LogicApps.TestFramework.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/Sample workflow definitions/">
