@@ -8,14 +8,15 @@ A .NET testing framework for **Azure Logic Apps Standard** that provides an obje
 
 1. [What This Framework Does](#what-this-framework-does)
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
-3. [Prerequisites and Configuration](#prerequisites-and-configuration)
-4. [IsMockingEnabled  -  Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
-5. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
-6. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
-7. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
-8. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-9. [Sample Workflow Definitions](#sample-workflow-definitions)
-10. [Unit Test Coverage](#unit-test-coverage)
+3. [Installing the Packages](#installing-the-packages)
+4. [Prerequisites and Configuration](#prerequisites-and-configuration)
+5. [IsMockingEnabled  -  Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
+6. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
+7. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
+8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
+9. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
+10. [Sample Workflow Definitions](#sample-workflow-definitions)
+11. [Unit Test Coverage](#unit-test-coverage)
 
 ---
 
@@ -96,6 +97,134 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockingEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
 
 **Bottom line:** Microsoft's tools are useful during development, locally, in VS Code. This framework is what you use after deployment, in your pipeline, to verify that the integration works end to end in a real environment.
+
+---
+
+## Installing the Packages
+
+The framework is distributed as four NuGet packages. In most cases you only need to reference one of them — NuGet resolves the others automatically as transitive dependencies.
+
+| Package | Install when you want to... |
+|---|---|
+| `LogicApps.TestFramework.Specifications` | Write Gherkin-based integration tests (the most common case) |
+| `LogicApps.Management` | Write custom C# integration tests without the Gherkin layer |
+| `LogicApps.Management.Repository` | Use only the Service Bus or Blob Storage helpers in isolation |
+| `LogicApps.Management.Models` | Use only the data model classes — pulled in automatically, rarely installed directly |
+
+---
+
+### Install from NuGet.org
+
+Packages are published to [nuget.org](https://www.nuget.org/profiles/sahinozd) and can be installed with no additional configuration.
+
+**.NET CLI**
+
+```bash
+# Full Gherkin test framework
+dotnet add package LogicApps.TestFramework.Specifications
+
+# Management API only (no Gherkin)
+dotnet add package LogicApps.Management
+```
+
+**Package Manager Console (Visual Studio)**
+
+```powershell
+Install-Package LogicApps.TestFramework.Specifications
+```
+
+**PackageReference in `.csproj`**
+
+```xml
+<PackageReference Include="LogicApps.TestFramework.Specifications" Version="1.1.0" />
+```
+
+Replace `1.1.0` with the version you want. See the [releases page](https://github.com/sahinozd/LogicAppsStandard.Testing/releases) for the latest version number.
+
+---
+
+### Install from GitHub Packages
+
+Packages are also published to [GitHub Packages](https://github.com/sahinozd/LogicAppsStandard.Testing/packages). GitHub Packages requires authentication even for public packages, so two extra steps are needed.
+
+#### Step 1 — Create a GitHub Personal Access Token (PAT)
+
+1. Go to [github.com](https://github.com) → click your profile picture → **Settings**
+2. In the left sidebar click **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+3. Click **Generate new token (classic)**
+4. Give it a name (e.g. `NuGet read`) and tick the **`read:packages`** scope
+5. Click **Generate token** and copy the value — you will not be able to see it again
+
+#### Step 2 — Add the GitHub Packages source
+
+Create or update a `nuget.config` file in the root of your solution (next to your `.sln` or `.slnx` file):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+    <add key="github" value="https://nuget.pkg.github.com/sahinozd/index.json" />
+  </packageSources>
+  <packageSourceCredentials>
+    <github>
+      <add key="Username" value="YOUR_GITHUB_USERNAME" />
+      <add key="ClearTextPassword" value="YOUR_PAT" />
+    </github>
+  </packageSourceCredentials>
+</configuration>
+```
+
+Replace `YOUR_GITHUB_USERNAME` with your GitHub username and `YOUR_PAT` with the token you created in Step 1.
+
+> **Important:** Do not commit `nuget.config` with a real PAT to source control. Either add it to `.gitignore`, use environment variable substitution, or store the credentials in your user-level NuGet config (`%appdata%\NuGet\NuGet.Config` on Windows) instead.
+
+#### Step 3 — Install as normal
+
+Once the source is registered, install the package using any of the standard methods:
+
+```bash
+dotnet add package LogicApps.TestFramework.Specifications
+```
+
+```xml
+<PackageReference Include="LogicApps.TestFramework.Specifications" Version="1.1.0" />
+```
+
+---
+
+### Storing credentials safely in a CI/CD pipeline
+
+If you are consuming these packages in your own pipeline, add the GitHub Packages source using environment variables rather than committing credentials.
+
+**GitHub Actions**
+
+```yaml
+- name: Add GitHub Packages source
+  run: |
+    dotnet nuget add source \
+      --username "${{ github.actor }}" \
+      --password "${{ secrets.GITHUB_TOKEN }}" \
+      --store-password-in-clear-text \
+      --name github \
+      "https://nuget.pkg.github.com/sahinozd/index.json"
+```
+
+The built-in `GITHUB_TOKEN` secret has `read:packages` permission automatically — no PAT is needed in GitHub Actions.
+
+**Azure DevOps**
+
+Add the GitHub Packages feed as an external NuGet service connection in your Azure DevOps project, then reference it in your pipeline:
+
+```yaml
+- task: NuGetAuthenticate@1
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: restore
+    feedsToUse: config
+    nugetConfigPath: nuget.config
+```
 
 ---
 
