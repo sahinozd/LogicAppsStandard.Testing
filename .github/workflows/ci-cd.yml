@@ -188,17 +188,13 @@ jobs:
             --source github \
             --skip-duplicate
 
-      # ── OPTIONAL: Also publish to NuGet.org ───────
-      # Uncomment this block if you want packages on nuget.org.
-      # You must add a NUGET_API_KEY secret in:
-      #   GitHub repo → Settings → Secrets and variables → Actions
-      #
-      # - name: Publish to NuGet.org
-      #   run: |
-      #     dotnet nuget push "./artifacts/**/*.nupkg" \
-      #       --source https://api.nuget.org/v3/index.json \
-      #       --api-key ${{ secrets.NUGET_API_KEY }} \
-      #       --skip-duplicate
+      # ── Also publish to NuGet.org ───────
+      - name: Publish to NuGet.org
+        run: |
+          dotnet nuget push "./artifacts/**/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --skip-duplicate
 
       # ── Create a GitHub Release with the .nupkg files attached ──
       - name: Create GitHub Release
