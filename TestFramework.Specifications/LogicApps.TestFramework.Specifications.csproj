@@ -7,7 +7,21 @@
 		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
 		<WarningLevel>9999</WarningLevel>
 		<Configurations>Debug;Release;Local</Configurations>
-	</PropertyGroup>
+		</PropertyGroup>
+		<PropertyGroup>
+			<PackageId>LogicApps.TestFramework.Specifications</PackageId>
+			<Authors>Sahin Ozdemir</Authors>
+			<Description>Gherkin-based acceptance testing layer for Azure Logic Apps Standard. Built on Reqnroll, it wraps the LogicApps.Management library with step definitions for triggering workflows, asserting on runs, validating transformations, and verifying correlated multi-workflow chains.</Description>
+			<PackageTags>logicapps;azure;integration;testing;gherkin;reqnroll;bdd</PackageTags>
+			<PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</PackageProjectUrl>
+			<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
+			<RepositoryType>git</RepositoryType>
+			<PackageLicenseExpression>MIT</PackageLicenseExpression>
+			<PackageReadmeFile>README.md</PackageReadmeFile>
+		</PropertyGroup>
+		<ItemGroup>
+			<None Include="..\README.md" Pack="true" PackagePath="\" />
+		</ItemGroup>
 	<ItemGroup>
 	  <Compile Remove="NewFolder\**" />
 	  <EmbeddedResource Remove="NewFolder\**" />

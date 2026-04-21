@@ -8,6 +8,20 @@
 	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
 	<WarningLevel>9999</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+	<PackageId>LogicApps.Management</PackageId>
+	<Authors>Sahin Ozdemir</Authors>
+	<Description>Object-oriented .NET API for interacting with Azure Logic Apps Standard at runtime. Wraps the Azure Management REST API and exposes workflows, runs, triggers, and the full action tree as strongly typed C# objects.</Description>
+	<PackageTags>logicapps;azure;integration;management;testing</PackageTags>
+	<PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</PackageProjectUrl>
+	<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+	<None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
