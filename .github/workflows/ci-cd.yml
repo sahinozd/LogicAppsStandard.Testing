@@ -46,10 +46,10 @@ permissions:
 env:
   DOTNET_VERSION: '10.x'
   SOLUTION_PATH: 'LogicAppStandardManagementFramework.slnx'
-  MODELS_PROJECT: 'Management.Models/LogicApps.Management.Models.csproj'
-  REPOSITORY_PROJECT: 'Management.Repository/LogicApps.Management.Repository.csproj'
-  MANAGEMENT_PROJECT: 'Management/LogicApps.Management.csproj'
-  SPECIFICATIONS_PROJECT: 'TestFramework.Specifications/LogicApps.TestFramework.Specifications.csproj'
+  MODELS_PROJECT: 'source/Management.Models/LogicApps.Management.Models.csproj'
+  REPOSITORY_PROJECT: 'source/Management.Repository/LogicApps.Management.Repository.csproj'
+  MANAGEMENT_PROJECT: 'source/Management/LogicApps.Management.csproj'
+  SPECIFICATIONS_PROJECT: 'source/TestFramework.Specifications/LogicApps.TestFramework.Specifications.csproj'
   # Unit-test projects (integration tests are excluded - they need live Azure resources)
   UNIT_TEST_FILTER: 'Management.Repository.Tests|Management.Tests|TestFramework.Specifications.Tests'
 

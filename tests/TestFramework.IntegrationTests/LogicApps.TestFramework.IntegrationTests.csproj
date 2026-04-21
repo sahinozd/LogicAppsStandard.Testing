@@ -29,7 +29,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\TestFramework.Specifications\LogicApps.TestFramework.Specifications.csproj" />
+	  <ProjectReference Include="..\..\source\TestFramework.Specifications\LogicApps.TestFramework.Specifications.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
