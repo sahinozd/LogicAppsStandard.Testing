@@ -40,5 +40,9 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\Management\LogicApps.Management.csproj" />
+	  <!-- Direct refs for compilation only. IsPackable=false on both prevents nuspec dependencies
+		   from being generated. DLLs are already bundled inside LogicApps.Management.nupkg. -->
+	  <ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" />
+	  <ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
 	</ItemGroup>
 </Project>
