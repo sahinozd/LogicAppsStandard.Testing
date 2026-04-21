@@ -7,8 +7,16 @@
 	<AnalysisLevel>latest-all</AnalysisLevel>
 	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
 	<WarningLevel>9999</WarningLevel>
-	<!-- Not a standalone NuGet package - compiled output is bundled into LogicApps.Management -->
-	<IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <PropertyGroup>
+	<PackageId>LogicApps.Management.Repository</PackageId>
+	<Authors>Sahin Ozdemir</Authors>
+	<Description>Azure infrastructure layer for the Logic Apps Standard testing framework. Provides the HTTP client, Entra ID token client, Azure Management repository, Service Bus message builder and sender, and Blob Storage request builder and sender.</Description>
+	<PackageTags>logicapps;azure;integration;servicebus;blobstorage;repository</PackageTags>
+	<PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</PackageProjectUrl>
+	<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

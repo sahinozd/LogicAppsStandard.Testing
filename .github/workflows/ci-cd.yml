@@ -6,6 +6,8 @@
 #   1. BUILD     - Restores & builds the full solution
 #   2. TEST      - Runs unit tests + collects code coverage
 #   3. PACKAGE   - Packs & publishes NuGet packages for:
+#                    - LogicApps.Management.Models
+#                    - LogicApps.Management.Repository
 #                    - LogicApps.Management
 #                    - LogicApps.TestFramework.Specifications
 #
@@ -44,6 +46,8 @@ permissions:
 env:
   DOTNET_VERSION: '10.x'
   SOLUTION_PATH: 'LogicAppStandardManagementFramework.slnx'
+  MODELS_PROJECT: 'Management.Models/LogicApps.Management.Models.csproj'
+  REPOSITORY_PROJECT: 'Management.Repository/LogicApps.Management.Repository.csproj'
   MANAGEMENT_PROJECT: 'Management/LogicApps.Management.csproj'
   SPECIFICATIONS_PROJECT: 'TestFramework.Specifications/LogicApps.TestFramework.Specifications.csproj'
   # Unit-test projects (integration tests are excluded - they need live Azure resources)
@@ -143,36 +147,49 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
-      # ── LogicApps.Management ──────────────────
-      - name: Build Management project
-        run: dotnet build ${{ env.MANAGEMENT_PROJECT }} --configuration Release --no-restore
 
-      - name: Pack Management project
+      # One build of the full solution covers all four pack steps below
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      # Pack order: Models -> Repository -> Management -> Specifications (dependency order)
+      - name: Pack LogicApps.Management.Models
+        run: |
+          dotnet pack ${{ env.MODELS_PROJECT }} \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts \
+            /p:PackageVersion=${{ steps.version.outputs.packageVersion }}
+
+      - name: Pack LogicApps.Management.Repository
+        run: |
+          dotnet pack ${{ env.REPOSITORY_PROJECT }} \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts \
+            /p:PackageVersion=${{ steps.version.outputs.packageVersion }}
+
+      - name: Pack LogicApps.Management
         run: |
           dotnet pack ${{ env.MANAGEMENT_PROJECT }} \
             --configuration Release \
             --no-build \
-            --output ./artifacts/Management \
+            --output ./artifacts \
             /p:PackageVersion=${{ steps.version.outputs.packageVersion }}
 
-      # ── LogicApps.TestFramework.Specifications ──────────────────
-      - name: Build TestFramework.Specifications project
-        run: dotnet build ${{ env.SPECIFICATIONS_PROJECT }} --configuration Release --no-restore
-
-      - name: Pack TestFramework.Specifications project
+      - name: Pack LogicApps.TestFramework.Specifications
         run: |
           dotnet pack ${{ env.SPECIFICATIONS_PROJECT }} \
             --configuration Release \
             --no-build \
-            --output ./artifacts/TestFramework.Specifications \
+            --output ./artifacts \
             /p:PackageVersion=${{ steps.version.outputs.packageVersion }}
-
       # ── Upload .nupkg files as workflow artifacts ──
       - name: Upload NuGet artifacts
         uses: actions/upload-artifact@v4
         with:
           name: nuget-packages-${{ steps.version.outputs.packageVersion }}
-          path: ./artifacts/**/*.nupkg
+          path: ./artifacts/*.nupkg
 
       # ── Publish to GitHub Packages (NuGet) ────────
       - name: Publish to GitHub Packages
@@ -184,11 +201,11 @@ jobs:
             --name github \
             "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
 
-          dotnet nuget push "./artifacts/**/*.nupkg" \
+          dotnet nuget push "./artifacts/*.nupkg" \
             --source github \
             --skip-duplicate
 
-      # ── Also publish to NuGet.org ───────
+      # ── Publish to NuGet.org ───────
       - name: Publish to NuGet.org
         run: |
           dotnet nuget push "./artifacts/**/*.nupkg" \
@@ -207,10 +224,12 @@ jobs:
 
             | Package | Version |
             |---|---|
+            | `LogicApps.Management.Models` | `${{ steps.version.outputs.packageVersion }}` |
+            | `LogicApps.Management.Repository` | `${{ steps.version.outputs.packageVersion }}` |
             | `LogicApps.Management` | `${{ steps.version.outputs.packageVersion }}` |
             | `LogicApps.TestFramework.Specifications` | `${{ steps.version.outputs.packageVersion }}` |
 
             The `.nupkg` files are attached below and are also published to [GitHub Packages](https://github.com/${{ github.repository }}/packages).
-          files: ./artifacts/**/*.nupkg
+          files: ./artifacts/*.nupkg
           draft: false
           prerelease: false

@@ -7,8 +7,16 @@
 	<AnalysisLevel>latest-all</AnalysisLevel>
 	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
 	<WarningLevel>9999</WarningLevel>
-	<!-- Not a standalone NuGet package - compiled output is bundled into LogicApps.Management -->
-	<IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <PropertyGroup>
+	<PackageId>LogicApps.Management.Models</PackageId>
+	<Authors>Sahin Ozdemir</Authors>
+	<Description>Data model library for Azure Logic Apps Standard. Contains the strongly typed C# models for workflows, runs, actions, triggers, and related entities used by the LogicApps.Management library.</Description>
+	<PackageTags>logicapps;azure;integration;management;models</PackageTags>
+	<PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</PackageProjectUrl>
+	<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
