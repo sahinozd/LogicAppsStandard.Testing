@@ -566,14 +566,14 @@ A complete Azure DevOps pipeline that incorporates deployment and integration te
 
 ![In the Tests section of the pipeline the integration tests are being shown](Readme.attachments/pipeline-run-3.png)
 
-Each environment stage (Ontwikkel, Test, Acceptatie) follows the same sequence of jobs:
+The environment stages Development and Test follow the same sequence of jobs:
 
 1. **Deploy**  -  deploy the Logic Apps Standard zip package and infrastructure
 2. **Prepare tests**  -  replace `appsettings.json` tokens and enable mocking
 3. **Execute tests**  -  run the integration test project
 4. **Teardown**  -  disable mocking
 
-This pattern ensures that every deployment to every environment is immediately verified by the full integration test suite before promotion to the next stage.
+This pattern ensures that every deployment to an environment is immediately verified by the full integration test suite before promotion to the next stage.
 
 ---
 
