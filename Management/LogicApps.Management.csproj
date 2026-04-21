@@ -27,22 +27,7 @@
 	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
   </ItemGroup>
   <ItemGroup>
-	<ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" PrivateAssets="All" />
-	<ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" PrivateAssets="All" />
-  </ItemGroup>
-
-  <!-- Bundle the private project reference DLLs into this package's lib folder.
-	   PrivateAssets="All" prevents nuspec dependencies from being generated.
-	   The None items with Pack=true place the compiled DLLs directly into
-	   lib/$(TargetFramework)/ so consumers get everything from one package. -->
-  <ItemGroup>
-	<None Include="..\Management.Models\bin\$(Configuration)\$(TargetFramework)\LogicApps.Management.Models.dll"
-		  Pack="true"
-		  PackagePath="lib/$(TargetFramework)/LogicApps.Management.Models.dll"
-		  Visible="false" />
-	<None Include="..\Management.Repository\bin\$(Configuration)\$(TargetFramework)\LogicApps.Management.Repository.dll"
-		  Pack="true"
-		  PackagePath="lib/$(TargetFramework)/LogicApps.Management.Repository.dll"
-		  Visible="false" />
+	<ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
+	<ProjectReference Include="..\Management.Repository\LogicApps.Management.Repository.csproj" />
   </ItemGroup>
 </Project>
