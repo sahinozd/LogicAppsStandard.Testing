@@ -11,9 +11,11 @@ A .NET testing framework for **Azure Logic Apps Standard** that provides an obje
 3. [Prerequisites and Configuration](#prerequisites-and-configuration)
 4. [IsMockingEnabled  -  Putting an Environment Under Test](#ismockingenabled--putting-an-environment-under-test)
 5. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
-6. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-7. [Sample Workflow Definitions](#sample-workflow-definitions)
-8. [Unit Test Coverage](#unit-test-coverage)
+6. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
+7. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
+8. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
+9. [Sample Workflow Definitions](#sample-workflow-definitions)
+10. [Unit Test Coverage](#unit-test-coverage)
 
 ---
 
@@ -104,8 +106,8 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 The following Azure resources are required:
 
 - **Azure Logic Apps Standard** instance containing the workflows under test
-- **Azure Service Bus** namespace, used to trigger workflows via the claim-check pattern and to validate send-side behaviour
-- **Azure Storage Account**, used to store message payloads as part of the claim-check pattern
+- **Azure Service Bus** namespace, used to trigger workflows via the claim-check pattern and to validate send-side behaviour. This is complementary if your workflows are e.g. decoupled by Service Bus (or triggered by it)
+- **Azure Storage Account**, used to store message payloads as part of the claim-check pattern. Also complementary, in the examples provided, decoupling happens through Service Bus, via the [claim-check pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/claim-check)
 
 ### Entra ID App Registration
 
@@ -401,6 +403,193 @@ Console.WriteLine($"Status:  {runTrigger?.Status}");
 Console.WriteLine($"Start:   {runTrigger?.StartTime}");
 Console.WriteLine($"Input:   {runTrigger?.Input}");
 Console.WriteLine($"Output:  {runTrigger?.Output}");
+```
+
+---
+
+## Sending Messages to Azure Service Bus
+
+`ServiceBusMessageBuilder` and `ServiceBusMessageSender` are in the `LogicApps.Management.Repository.ServiceBus` namespace. Together they cover all scenarios for putting a message on a Service Bus queue or topic from a test: plain payloads, the claim-check pattern, correlation identifiers, typed message properties, and arbitrary custom application properties.
+
+### ServiceBusMessageBuilder
+
+`ServiceBusMessageBuilder` is a fluent builder. Every method returns `this`, so calls can be chained. Call `Build()` at the end to get the serialized payload string and the application-properties dictionary that `ServiceBusMessageSender` needs.
+
+| Method | Purpose |
+|---|---|
+| `Create()` | Creates a new builder instance. |
+| `WithClaimCheck(fileName)` | Sets the payload to `{ "fileLocation": "<fileName>" }`. Use this when the actual payload has been stored in Blob Storage and the message carries only a reference to it (the [claim-check pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/claim-check)). |
+| `WithMessage(message)` | Sets a raw string payload. Use this for direct-payload messages where no external storage is involved. |
+| `WithCorrelationId(correlationId)` | Embeds the correlation ID as a Service Bus broker property (`BrokerProperties.CorrelationId`), so Logic Apps can correlate runs automatically. |
+| `WithMessageType(messageType)` | Adds a `messageType` application property. Useful when a downstream workflow routes on message type. |
+| `AddProperty(key, value)` | Adds an arbitrary application property. If the key already exists its value is overwritten. |
+| `Build()` | Returns `(string Message, Dictionary<string, string> Properties)`. Throws `InvalidOperationException` if no payload was set. |
+
+### ServiceBusMessageSender
+
+`ServiceBusMessageSender` takes an `IAzureManagementRepository` in its constructor (injected automatically when using the Gherkin base classes). It exposes a single method:
+
+```
+Task SendAsync(string queueOrTopicPath, string message, Dictionary<string, string>? properties = null)
+```
+
+The `queueOrTopicPath` is the queue or topic name as it appears in the Service Bus namespace (e.g. `sbt-sourcesystem-out` or `sbq-processor-in`). The method throws `HttpRequestException` on any non-success HTTP response.
+
+### Examples
+
+**Claim-check message with correlation ID (the most common pattern)**
+
+```csharp
+var (message, properties) = ServiceBusMessageBuilder
+    .Create()
+    .WithClaimCheck(fileName)           // payload was already written to Blob Storage
+    .WithCorrelationId(correlationId)   // embeds CorrelationId in BrokerProperties
+    .Build();
+
+await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", message, properties);
+```
+
+The resulting Service Bus message body is:
+```json
+{ "fileLocation": "<fileName>" }
+```
+And the `BrokerProperties` application property contains:
+```json
+{ "CorrelationId": "<correlationId>" }
+```
+
+**Claim-check message with additional custom properties**
+
+```csharp
+var (message, properties) = ServiceBusMessageBuilder
+    .Create()
+    .WithClaimCheck(fileName)
+    .WithCorrelationId(correlationId)
+    .WithMessageType("demoMessageType")  // adds messageType application property
+    .AddProperty("sender", "rcv")        // adds arbitrary application property
+    .Build();
+
+await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", message, properties);
+```
+
+**Plain payload message (no claim-check)**
+
+```csharp
+var payload = JsonConvert.SerializeObject(myObject);
+
+var (message, properties) = ServiceBusMessageBuilder
+    .Create()
+    .WithMessage(payload)
+    .WithCorrelationId(correlationId)
+    .Build();
+
+await ServiceBusMessageSender.SendAsync("sbq-processor-in", message, properties);
+```
+
+**Message with no correlation ID and no additional properties**
+
+```csharp
+var (message, properties) = ServiceBusMessageBuilder
+    .Create()
+    .WithMessage("ping")
+    .Build();
+
+await ServiceBusMessageSender.SendAsync("sbq-processor-in", message);
+```
+
+---
+
+## Uploading Blobs to Azure Storage Account
+
+`BlobRequestBuilder` and `BlobStorageSender` are in the `LogicApps.Management.Repository.StorageAccount` namespace. They handle uploading a string payload as a block blob to an Azure Blob Storage container, with all required Azure Storage REST API headers set automatically.
+
+### BlobRequestBuilder
+
+`BlobRequestBuilder` is a static helper that constructs the `HttpContent` object for a blob upload. It sets the following headers automatically:
+
+| Header | Value |
+|---|---|
+| `x-ms-date` | Current UTC time in RFC 1123 format |
+| `x-ms-version` | `2023-11-03` |
+| `x-ms-blob-type` | `BlockBlob` |
+| `x-ms-blob-content-type` | MIME type derived from the file name extension (via the `MimeTypes` library) |
+
+```
+static HttpContent Build(string payload, string fileName)
+```
+
+The `payload` is the string body of the blob (typically a JSON or XML document). The `fileName` is used solely to determine the MIME type; it does not affect where in the container the blob is stored (that is determined by the `fileName` passed to `BlobStorageSender.UploadAsync`).
+
+### BlobStorageSender
+
+`BlobStorageSender` takes an `IAzureManagementRepository` in its constructor (injected automatically when using the Gherkin base classes). It exposes a single method:
+
+```
+Task UploadAsync(string container, string fileName, HttpContent content)
+```
+
+| Parameter | Description |
+|---|---|
+| `container` | The name of the Blob Storage container (e.g. `demoworkload`). |
+| `fileName` | The blob name within the container. This becomes the full blob path, so it can include virtual directory separators (e.g. `input/2024/message.json`). |
+| `content` | The `HttpContent` returned by `BlobRequestBuilder.Build`. |
+
+The method throws `HttpRequestException` on any non-success HTTP response.
+
+### Examples
+
+**Upload a serialized object as a JSON blob**
+
+```csharp
+var json = JsonConvert.SerializeObject(message, new JsonSerializerSettings
+{
+    NullValueHandling = NullValueHandling.Include
+});
+
+var content = BlobRequestBuilder.Build(json, fileName);
+await BlobStorageSender.UploadAsync(container, fileName, content);
+```
+
+The `fileName` here is reused for both the MIME type lookup and the blob name. A typical value looks like `a1b2c3d4-rcv-source-data-20240601T120000.json`.
+
+**Upload an XML document**
+
+```csharp
+var xml = SerializeToXml(myObject);     // your own serialization helper
+var fileName = $"{correlationId}.xml";
+
+var content = BlobRequestBuilder.Build(xml, fileName);
+await BlobStorageSender.UploadAsync("demoworkload", fileName, content);
+```
+
+Because the MIME type is derived from the file extension, `.xml` files automatically receive `application/xml` as the blob content type.
+
+**Full claim-check pattern: upload payload then send claim-check**
+
+This is the complete sequence used by `BaseTransformationStepDefinition` and is the recommended pattern for triggering receive-process-send chains from tests:
+
+```csharp
+// 1. Serialize the source message
+var json = JsonConvert.SerializeObject(message, new JsonSerializerSettings
+{
+    NullValueHandling = NullValueHandling.Include
+});
+
+// 2. Upload the payload to Blob Storage
+var fileName = $"{Guid.NewGuid()}-source-data.json";
+var content = BlobRequestBuilder.Build(json, fileName);
+await BlobStorageSender.UploadAsync("demoworkload", fileName, content);
+
+// 3. Send the claim-check message to Service Bus so the workflow picks it up
+var correlationId = Guid.NewGuid().ToString();
+
+var (sbMessage, properties) = ServiceBusMessageBuilder
+    .Create()
+    .WithClaimCheck(fileName)
+    .WithCorrelationId(correlationId)
+    .Build();
+
+await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", sbMessage, properties);
 ```
 
 ---
