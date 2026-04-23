@@ -17,7 +17,7 @@
 	<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
-	<PackageReadmeFile>..\..\README.md</PackageReadmeFile>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
 	<None Include="..\..\README.md" Pack="true" PackagePath="\" />
