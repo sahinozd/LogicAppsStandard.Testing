@@ -46,7 +46,6 @@ permissions:
 env:
   DOTNET_VERSION: '10.x'
   SOLUTION_PATH: 'LogicAppStandardManagementFramework.slnx'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MODELS_PROJECT: 'source/Management.Models/LogicApps.Management.Models.csproj'
   REPOSITORY_PROJECT: 'source/Management.Repository/LogicApps.Management.Repository.csproj'
   MANAGEMENT_PROJECT: 'source/Management/LogicApps.Management.csproj'
@@ -64,10 +63,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -102,7 +101,7 @@ jobs:
 
       # Upload test results so they appear in the GitHub Actions summary
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()              # upload even when tests fail
         with:
           name: test-results
@@ -110,7 +109,7 @@ jobs:
 
       # Upload coverage report as a build artifact
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
@@ -128,10 +127,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -187,7 +186,7 @@ jobs:
             /p:PackageVersion=${{ steps.version.outputs.packageVersion }}
       # ── Upload .nupkg files as workflow artifacts ──
       - name: Upload NuGet artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nuget-packages-${{ steps.version.outputs.packageVersion }}
           path: ./artifacts/*.nupkg
@@ -216,7 +215,7 @@ jobs:
 
       # ── Create a GitHub Release with the .nupkg files attached ──
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ steps.version.outputs.packageVersion }}"
