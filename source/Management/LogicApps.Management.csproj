@@ -24,7 +24,7 @@
   </ItemGroup>
   <ItemGroup>
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.6" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
   </ItemGroup>
   <ItemGroup>
 	<ProjectReference Include="..\Management.Models\LogicApps.Management.Models.csproj" />
