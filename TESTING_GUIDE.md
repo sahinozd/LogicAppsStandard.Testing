@@ -839,6 +839,298 @@ All iteration indices throughout the framework use **1-based numbering**:
 
 ---
 
+## How the Framework Translates Gherkin to the Management Library
+
+This section explains the internal call chain from a Gherkin step down to the `LogicApps.Management` object model. It focuses on the most important scenarios: triggering, action lookup, loop navigation (including nested loops), condition branches, path-based navigation, and transformation output capture.
+
+### Architecture Overview
+
+```
+Gherkin scenario (.feature file)
+        │
+        ▼
+Concrete StepDefinition class
+  extends BaseStepDefinition (or BaseTransformationStepDefinition)
+        │
+        ▼
+WorkflowRunValidation
+  uses WorkflowRunNavigator   ← depth-first search across the full action tree
+  uses ActionPathNavigator    ← dot-path navigation for structural targeting
+        │
+        ▼
+LogicApps.Management object model
+  LogicApp → Workflow → WorkflowRun → BaseAction
+    (ScopeAction / ConditionAction / SwitchAction / ForEachAction / UntilAction)
+        │
+        ▼
+Azure Management REST API (live, deployed environment)
+```
+
+`BaseStepDefinition` is the single place that owns the `LogicApp` instance and the `_currentWorkflowRuns` list. Every `[Then]` step delegates to a `WorkflowRunValidation` instance, which uses `WorkflowRunNavigator` (tree search) and `ActionPathNavigator` (path-based) to locate and assert on actions.
+
+---
+
+### BaseStepDefinition
+
+#### Triggering a workflow (When)
+
+```gherkin
+When Workflow "receive-order" is triggered
+```
+
+The step calls `LogicApp.GetWorkflowsAsync()`, which fetches all `Workflow` objects for the Logic Apps Standard resource from the Management API. It matches by name, calls `GetTriggerAsync()` to retrieve the HTTP trigger, and then fires it with `trigger.Run(null)`. The run is then collected via a polling loop:
+
+```csharp
+Management.WorkflowRun? currentRun;
+do
+{
+    currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
+} while (currentRun?.Status == "Running");
+
+_currentWorkflowRuns = currentRun != null ? [currentRun] : [];
+CurrentCorrelationId = currentRun?.CorrelationId;
+```
+
+`GetReadyWorkflowRun` waits 3 seconds, calls `workflow.ReloadAsync()` to refresh the run list, and then returns either the run whose `CorrelationId` matches `CurrentCorrelationId` (when already set by a prior trigger step) or the run with the latest `StartTime`. `CurrentCorrelationId` is stored on the first trigger call and reused by all subsequent correlated assertions.
+
+---
+
+#### Action assertion (Then)
+
+```gherkin
+Then The workflow executed these actions:
+  | StepName            | Status    |
+  | Parse_JSON          | Succeeded |
+  | Send_to_Service_Bus | Succeeded |
+```
+
+The Reqnroll table is converted to a list of `WorkflowEvent` objects. For each row, `WorkflowRunValidation.ValidateRunActionsAsync` calls `WorkflowRunNavigator.FindActionAsync(stepName)`, which delegates to `WorkflowRun.FindActionByNameAsync` — a depth-first search that traverses into the child collections of every composite action type in the flat action list returned by the Management API:
+
+- `ScopeAction.Actions`
+- `ConditionAction.DefaultActions` and `ConditionAction.ElseActions`
+- `SwitchAction.Cases[*].Actions`
+- `ForEachAction.Repetitions[*].Actions`
+- `UntilAction.Repetitions[*].Actions`
+
+The search returns **all** matches (there can be multiple when an action name recurs across loop iterations), and the first match is used to read `action.Status`.
+
+---
+
+#### Loop iteration count (Then)
+
+```gherkin
+Then The "For each order line" loop ran 3 times with status "Succeeded"
+```
+
+`WorkflowRunValidation.ValidateLoopIterationCountAsync` calls `WorkflowRunNavigator.FindActionAsync(loopName)`. Because the same `ForEachAction` name can appear multiple times in the flat list (one entry per nesting level or per parallel branch), the method validates every returned instance. For each one it counts `forEachAction.Repetitions` — the list of `ForEachActionRepetition` objects already populated from the Management API — and checks that the count equals the expected value and that each repetition's status matches.
+
+---
+
+#### Actions inside a specific iteration (Then)
+
+```gherkin
+Then In iteration 2 of "For each order line":
+  | StepName      | Status    |
+  | Map_line_item | Succeeded |
+```
+
+`WorkflowRunValidation.ValidateActionsInIterationAsync` delegates to `WorkflowRunNavigator.GetActionsInForEachIterationAsync`:
+
+```csharp
+// WorkflowRunNavigator.cs
+public async Task<List<BaseAction>?> GetActionsInForEachIterationAsync(string loopActionName, int iterationIndex)
+{
+    var loopActions = await FindActionAsync(loopActionName).ConfigureAwait(false);
+    var foreachAction = loopActions?.FirstOrDefault() as ForEachAction;
+
+    var repetition = foreachAction?.Repetitions.FirstOrDefault(r =>
+        r.RepetitionIndexes?.Any(ri => ri.ItemIndex == iterationIndex) == true);
+
+    return repetition?.Actions;
+}
+```
+
+`RepetitionIndexes` is a collection on each `ForEachActionRepetition` that the Management API populates with the 0-based `ItemIndex` for that iteration. The method finds the repetition whose index matches and returns its `Actions` list. `GetActionsInUntilIterationAsync` follows the same pattern for `UntilAction`.
+
+---
+
+#### Nested loop assertions (Then)
+
+```gherkin
+Then The nested "For each letter" loop in iteration 2 of "For each number" ran 4 times with status "Succeeded"
+```
+
+`WorkflowRunValidation.ValidateNestedLoopAsync` calls `WorkflowRunNavigator.GetNestedLoopsInForEachIterationAsync`:
+
+```csharp
+// WorkflowRunNavigator.cs
+public async Task<List<BaseAction>?> GetNestedLoopsInForEachIterationAsync(string parentLoopName, int iterationIndex)
+{
+    var actionsInIteration = await GetActionsInForEachIterationAsync(parentLoopName, iterationIndex).ConfigureAwait(false);
+    return actionsInIteration?
+        .Where(a => a is ForEachAction or UntilAction)
+        .ToList();
+}
+```
+
+This resolves the parent loop's iteration (using `RepetitionIndexes` as above), then filters the resulting action list to only `ForEachAction` or `UntilAction` instances. The nested loop with the requested name is found in that filtered list, and its own `Repetitions` count and statuses are validated. The same path applies for nested loops inside an `Until` loop via `GetNestedLoopsInUntilIterationAsync`.
+
+---
+
+#### Scope and condition branch assertions (Then)
+
+```gherkin
+Then Within "Try":
+  | StepName   | Status    |
+  | Call_API   | Succeeded |
+
+Then In the "actions" branch of "Is valid order":
+  | StepName      | Status    |
+  | Create_record | Succeeded |
+```
+
+Both steps call `WorkflowRunValidation.ValidateChildActionsAsync`, which calls `WorkflowRunNavigator.GetActionsInScopeAsync`:
+
+```csharp
+// WorkflowRunNavigator.cs
+return parentAction switch
+{
+    ConditionAction conditionAction => GetConditionBranchActions(conditionAction, branchName),
+    SwitchAction switchAction       => GetSwitchCaseActions(switchAction, branchName),
+    ScopeAction scopeAction         => scopeAction.Actions,
+    _                               => Array.Empty<BaseAction>()
+};
+```
+
+For a `ScopeAction` (Try / Catch / Finally), `scopeAction.Actions` gives the child list directly. For a `ConditionAction`, `branchName` selects either `DefaultActions` (`"actions"` — the true branch) or `ElseActions` (`"else"` — the false branch). For a `SwitchAction`, the case name is matched case-insensitively against `switchAction.Cases` and that case's `Actions` list is returned.
+
+---
+
+#### Correlated multi-workflow assertions (Then)
+
+```gherkin
+Then For all instances of "process-order" with the same correlation:
+  | StepName  | Status    |
+  | Map_order | Succeeded |
+```
+
+`GetCorrelatedWorkflowRuns` filters `workflow.GetWorkflowRunsAsync()` by `run.CorrelationId == CurrentCorrelationId`. `CurrentCorrelationId` was captured when the receive workflow was triggered. The step polls until all matching runs have left the `Running` state, then validates each one independently. This allows a single scenario to assert on every downstream processor instance produced by the same receive run.
+
+---
+
+### BaseTransformationStepDefinition
+
+`BaseTransformationStepDefinition<TSource, TDestination>` extends `BaseStepDefinition` with the full claim-check pattern. It is generic: `TSource` is the C# model that is serialised and uploaded to Blob Storage; `TDestination` is the typed object the workflow's transformation output is deserialised into.
+
+#### Building and sending the message (Given / When)
+
+```gherkin
+Given A message with a data from the source system
+And It has the following source data:
+  | Field       | Value    |
+  | OrderNumber | ORD-0042 |
+When The message payload is put in Storage Account container "inbound" with file name "order.json"
+And The claim-check is put on Service Bus topic "orders-topic"
+```
+
+`GivenAMessage` creates `new TSource()`. `GivenSourceData` sets each field on it by reflection via `ClassHelper.SetProperty`. `PublishStorageAccountMessagePayload` serialises the message to JSON and calls `BlobStorageSender.UploadAsync` against the Azure Storage REST API. `PublishServiceBusMessageClaimCheck` assembles a Service Bus message that carries the blob filename as a claim-check reference (plus a generated `CorrelationId`) and sends it via `ServiceBusMessageSender.SendAsync`.
+
+#### Capturing the transformation output (Then)
+
+```gherkin
+Then Workflow step "Transform_order" has transformed the data
+And The transformed data has "OrderId" with value "ORD-0042"
+```
+
+```csharp
+// BaseTransformationStepDefinition.cs
+var transformationActions = await workflowRun.FindActionByNameAsync(stepName).ConfigureAwait(false);
+var transformationAction = transformationActions?.FirstOrDefault();
+
+var outputMessage = JsonConvert.DeserializeObject<TransformationOutput<string?>>(
+    transformationAction!.Output!.ToString());
+
+TransformedBody = DeserializeTransformedBody(outputMessage!.Body!);
+SetTransformedBody(TransformedBody);
+```
+
+`WorkflowRun.FindActionByNameAsync` locates the named action anywhere in the tree. `transformationAction.Output` is the raw JSON output captured by the Management API for that action execution. It is first unwrapped into `TransformationOutput<string?>` (an envelope with a `Body` property), and the `Body` string is then passed to the abstract `DeserializeTransformedBody` method that the concrete test class implements — XML deserialisation for XSLT, JSON deserialisation for Liquid. The resulting `TDestination` is stored via `SetTransformedBody`, making it available to the `The transformed data has "..." with value "..."` step in `BaseStepDefinition`, which uses `Pather.CSharp.Resolver` to evaluate the field path against the deserialised object.
+
+---
+
+### WorkflowRunNavigator
+
+`WorkflowRunNavigator` wraps a single `WorkflowRun` and is the primary interface through which `WorkflowRunValidation` interrogates the action tree. The key methods and the underlying Management API calls they make:
+
+| Method | Management API call | What it returns |
+|---|---|---|
+| `FindActionAsync` | `WorkflowRun.FindActionByNameAsync` | All instances of an action, found by depth-first search |
+| `GetTopLevelActionsAsync` | `WorkflowRun.GetWorkflowRunActionsAsync` | Flat action list filtered to exclude any action whose name appears in a child collection |
+| `GetChildActionsAsync` | `FindActionAsync` + child property | Direct children of a scope, condition (both branches), switch (all cases), or loop (all iterations flattened) |
+| `GetActionsInForEachIterationAsync` | `FindActionAsync` + `Repetitions` | Actions inside a specific 0-based iteration of a ForEach loop, matched via `RepetitionIndexes.ItemIndex` |
+| `GetActionsInUntilIterationAsync` | `FindActionAsync` + `Repetitions` | Actions inside a specific 0-based iteration of an Until loop, matched via `RepetitionIndexes.ItemIndex` |
+| `GetNestedLoopsInForEachIterationAsync` | `GetActionsInForEachIterationAsync` filtered | Only `ForEachAction` / `UntilAction` children within a specific parent-loop iteration |
+
+`GetTopLevelActionsAsync` is used by `ActionPathNavigator` as its starting point. The Management API returns all run actions as a flat list (including nested actions); `GetAllNestedActionNames` identifies which names appear inside any child collection and filters them out, leaving only true top-level actions.
+
+---
+
+### ActionPathNavigator
+
+`ActionPathNavigator` is a static helper used exclusively by the `In "...":` step. It resolves a dot-separated path string to the flat list of `BaseAction` objects at that location in the tree.
+
+#### Path format
+
+| Path | What it resolves to |
+|---|---|
+| `Try` | All child actions of the Scope named "Try" |
+| `Try.Catch` | Child actions of the "Catch" scope inside "Try" |
+| `For each number[2]` | Actions in iteration 2 (1-based) of that ForEach |
+| `For each number[2].For each letter[3]` | Actions in iteration 3 of the nested ForEach inside iteration 2 of the parent |
+| `Is valid order.actions` | True-branch actions of the Condition |
+| `Is valid order.else` | False-branch actions of the Condition |
+| `Route by type.Express` | Actions in the "Express" case of the Switch |
+
+#### Segment-by-segment walk
+
+`NavigateToPath` parses the path into `PathSegment` records (name + optional 1-based index) and walks them against the current action list:
+
+```csharp
+// ActionPathNavigator.cs
+for (var i = 0; i < segments.Count; i++)
+{
+    var segment = segments[i];
+    var nextIsBranch = i + 1 < segments.Count &&
+         (segments[i + 1].ActionName.Equals("actions", ...) ||
+          segments[i + 1].ActionName.Equals("else", ...) ||
+          IsPotentiallySwitchCaseSegment(currentActions, segments[i + 1].ActionName));
+
+    currentActions = NavigateSegment(currentActions, segment, nextIsBranch);
+    if (currentActions.Count == 0)
+        return Array.Empty<BaseAction>();
+}
+```
+
+For each segment, `NavigateSegment` does the following in order:
+
+1. **Branch keyword** — if the segment name is `"actions"` or `"else"`, `NavigateToBranch` finds the `ConditionAction` in the current list and returns `DefaultActions` or `ElseActions` respectively.
+2. **Action name match** — the action is found by `DesignerName` or `Name` (case-insensitive). If a `SwitchAction` is present in the current list but no direct name match is found, the segment is treated as a switch case name and `NavigateToSwitchCase` is called.
+3. **Index** — if the segment carries an index (e.g. `[2]`), `NavigateToIteration` converts it from 1-based to 0-based and resolves the matching `ForEachActionRepetition` or `UntilActionRepetition` by checking `RepetitionIndexes`:
+
+```csharp
+// ActionPathNavigator.cs — GetForEachIterationActions
+var repetition = foreachAction.Repetitions.FirstOrDefault(repetitions =>
+    repetitions.RepetitionIndexes?.Any(actionRepetitionIndex =>
+        actionRepetitionIndex.ItemIndex == index &&
+        actionRepetitionIndex.ScopeName == foreachAction.Name) == true);
+```
+
+Matching on both `ItemIndex` **and** `ScopeName` is critical for nested loops. The Management API sets `ScopeName` to the name of the loop that owns the repetition, so iteration 2 of an inner loop is not confused with iteration 2of the outer loop at the same nesting level.
+
+4. **Look-ahead for branches / switch cases** — when the *next* segment is `"actions"`, `"else"`, or a potential switch case name, `NavigateSegment` returns the `ConditionAction` or `SwitchAction` itself (wrapped in a list) instead of its children. This keeps the parent action in `currentActions` so that the following segment can correctly select the branch or case from it.
+
+---
+
 **Document Version:** 2.0
 **Last Updated:** June 2025
 **Compatible with:** .NET 10 and Reqnroll
