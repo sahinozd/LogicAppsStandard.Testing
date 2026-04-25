@@ -43,6 +43,7 @@ permissions:
   contents: write          # needed to create a GitHub Release
   packages: write          # needed to push to GitHub Packages (NuGet)
   checks: write            # needed for dorny/test-reporter to post check results
+  pull-requests: write     # needed for code coverage summary PR comments
 
 env:
   DOTNET_VERSION: '10.x'
@@ -109,6 +110,29 @@ jobs:
             -reporttypes:"HtmlInline;Cobertura" \
             -assemblyfilters:"-LogicApps.Management.Models*"
         continue-on-error: true   # don't fail the build if no coverage data exists yet
+
+      # Post a coverage summary to the job summary and as a PR comment
+      - name: Code coverage summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        if: always()
+        with:
+          filename: ./TestResults/**/coverage.cobertura.xml
+          badge: true
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: false
+          indicators: true
+          output: both               # writes to job summary AND a file
+          thresholds: '60 80'        # warning below 60%, failure below 80%
+        continue-on-error: true
+
+      # Add coverage as a PR comment so it is visible without opening the run
+      - name: Add coverage PR comment
+        uses: marocchino/sticky-pull-request-comment@v3
+        if: github.event_name == 'pull_request'
+        with:
+          recreate: true
+          path: code-coverage-results.md
 
       # Upload test results so they appear in the GitHub Actions summary
       - name: Upload test results
