@@ -1,0 +1,40 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["**/*.csproj"],
+          "src": "../source",
+          "exclude": ["**/obj/**", "**/bin/**"]
+        }
+      ],
+      "dest": "api",
+      "noRestore": true,
+      "includePrivateMembers": false,
+      "namespaceLayout": "nested"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml", "api/index.md"]
+      },
+      {
+        "files": ["toc.yml", "index.md", "articles/**.md", "articles/**/toc.yml"],
+        "src": "."
+      }
+    ],
+    "globalMetadata": {
+      "_appName": "LogicApps Standard Testing Framework",
+      "_appTitle": "LogicApps Standard Testing Framework",
+      "_enableSearch": true,
+      "_gitContribute": {
+        "repo": "https://github.com/sahinozd/LogicAppsStandard.Testing",
+        "branch": "main"
+      },
+      "_appFooter": "LogicApps Standard Testing Framework — MIT License"
+    },
+    "template": ["default", "modern"],
+    "dest": "../site"
+  }
+}
