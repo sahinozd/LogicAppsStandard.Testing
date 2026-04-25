@@ -87,7 +87,7 @@ jobs:
             --filter "FullyQualifiedName~Management.Tests|FullyQualifiedName~Management.Repository.Tests|FullyQualifiedName~TestFramework.Specifications.Tests" \
             --collect:"XPlat Code Coverage" \
             --results-directory ./TestResults \
-            --logger "trx;LogFileName=unit-tests.trx"
+            --logger trx
 
       # Publish test results as a GitHub Check so they appear in the PR / commit view
       - name: Publish test report
