@@ -107,11 +107,15 @@ jobs:
           reportgenerator \
             -reports:"./TestResults/**/coverage.cobertura.xml" \
             -targetdir:"./TestResults/CoverageReport" \
-            -reporttypes:"HtmlInline;Cobertura" \
+            -reporttypes:"HtmlInline;Cobertura;MarkdownSummaryGithub" \
             -assemblyfilters:"-LogicApps.Management.Models*"
         continue-on-error: true   # don't fail the build if no coverage data exists yet
 
-      # Post a coverage summary to the job summary and as a PR comment
+      # Write the detailed coverage report (per-class + risk hotspots) to the job summary
+      - name: Write coverage to job summary
+        if: always()
+        run: cat ./TestResults/CoverageReport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
       - name: Code coverage summary
         uses: irongut/CodeCoverageSummary@v1.3.0
         if: always()
