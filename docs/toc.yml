@@ -2,8 +2,5 @@
   href: index.md
 - name: Testing Guide
   href: articles/testing-guide.md
-- name: API Reference
-  href: api/
-  topicHref: api/index.md
 - name: Coverage Report
   href: coverage/
