@@ -116,7 +116,7 @@ jobs:
         uses: irongut/CodeCoverageSummary@v1.3.0
         if: always()
         with:
-          filename: ./TestResults/**/coverage.cobertura.xml
+          filename: ./TestResults/CoverageReport/Cobertura.xml
           badge: true
           format: markdown
           hide_branch_rate: false
