@@ -145,13 +145,31 @@ jobs:
           path: ./TestResults
 
       # Upload the full HTML coverage report as a Pages artifact and deploy it
-      - name: Upload coverage report for GitHub Pages
+      - name: Install DocFX
+        if: github.ref == 'refs/heads/main'
+        run: dotnet tool install -g docfx
+        continue-on-error: true
+
+      - name: Build documentation site
+        if: github.ref == 'refs/heads/main'
+        run: docfx docs/docfx.json
+        continue-on-error: true
+
+      # Embed the coverage report under /coverage/ inside the DocFX site
+      - name: Merge coverage report into site
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ./site/coverage
+          cp -r ./TestResults/CoverageReport/. ./site/coverage/
+        continue-on-error: true
+
+      - name: Upload site for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && always()
         with:
-          path: ./TestResults/CoverageReport
+          path: ./site
 
-      - name: Deploy coverage report to GitHub Pages
+      - name: Deploy site to GitHub Pages
         uses: actions/deploy-pages@v4
         if: github.ref == 'refs/heads/main' && always()
         id: pages-deployment
