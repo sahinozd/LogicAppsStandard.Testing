@@ -1,6 +1,8 @@
 # Logic Apps Standard  -  Integration Testing Framework
 
-A .NET testing framework for **Azure Logic Apps Standard** that provides an object-oriented C# API for interacting with Logic Apps at runtime and a Gherkin-based acceptance testing layer built on top of [Reqnroll](https://reqnroll.net/). It is designed to run as part of your DevOps deployment pipeline  -  after a deployment to a Development or Test environment  -  to perform full end-to-end integration testing directly against Azure.
+[![Ko-fi](https://img.shields.io/badge/Support%20me%20on-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/sahinozd)
+
+A .NET testing framework for **Azure Logic Apps Standard**
 
 ---
 
