@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using LogicApps.Management.Factory;
 using LogicApps.Management.Helper;
+using LogicApps.Management.Models.Constants;
 using LogicApps.Management.Repository;
 using LogicApps.Management.Repository.ServiceBus;
 using LogicApps.Management.Repository.StorageAccount;
@@ -33,18 +34,18 @@ public abstract class BaseStepDefinition : IDisposable
     private bool _disposedValue;
     private object? _transformedBody;
 
-    private Management.Workflow? _currentWorkflow;
-    private List<Management.WorkflowRun> _currentWorkflowRuns = [];
+    private Management.IWorkflow? _currentWorkflow;
+    private List<Management.IWorkflowRun> _currentWorkflowRuns = [];
 
-    protected Management.Workflow? CurrentWorkflow => _currentWorkflow;
+    protected Management.IWorkflow? CurrentWorkflow => _currentWorkflow;
 
-    protected IList<Management.WorkflowRun> CurrentWorkflowRuns => _currentWorkflowRuns;
+    protected IList<Management.IWorkflowRun> CurrentWorkflowRuns => _currentWorkflowRuns;
 
     protected IServiceBusMessageSender ServiceBusMessageSender { get; private set; }
 
     protected IBlobStorageSender BlobStorageSender { get; private set; }
 
-    protected Management.LogicApp? LogicApp { get; set; }
+    protected Management.ILogicApp? LogicApp { get; set; }
 
     protected string? CurrentCorrelationId { get; set; }
 
@@ -75,13 +76,13 @@ public abstract class BaseStepDefinition : IDisposable
         var logicAppWorkflows = await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false);
         _currentWorkflow = logicAppWorkflows.FirstOrDefault(workflow => workflow.Name == workflowName);
         var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
-        await trigger.Run(null).ConfigureAwait(false);
+        await trigger.RunAsync(null).ConfigureAwait(false);
 
-        Management.WorkflowRun? currentRun;
+        Management.IWorkflowRun? currentRun;
         do
         {
             currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-        } while (currentRun?.Status == "Running");
+        } while (currentRun?.Status == WorkflowRunStatus.Running);
 
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
@@ -100,13 +101,13 @@ public abstract class BaseStepDefinition : IDisposable
             using var content = new StringContent(fileContent);
             _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
             var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
-            await trigger.Run(content).ConfigureAwait(false);
+            await trigger.RunAsync(content).ConfigureAwait(false);
 
-            Management.WorkflowRun? currentRun;
+            Management.IWorkflowRun? currentRun;
             do
             {
                 currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-            } while (currentRun?.Status == "Running");
+            } while (currentRun?.Status == WorkflowRunStatus.Running);
 
             _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
             CurrentCorrelationId = currentRun?.CorrelationId;
@@ -150,13 +151,13 @@ public abstract class BaseStepDefinition : IDisposable
 
         _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
         var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
-        await trigger.Run(content).ConfigureAwait(false);
+        await trigger.RunAsync(content).ConfigureAwait(false);
 
-        Management.WorkflowRun? currentRun;
+        Management.IWorkflowRun? currentRun;
         do
         {
             currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-        } while (currentRun?.Status == "Running");
+        } while (currentRun?.Status == WorkflowRunStatus.Running);
 
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
@@ -397,7 +398,7 @@ public abstract class BaseStepDefinition : IDisposable
         do
         {
             _currentWorkflowRuns = [.. (await GetCorrelatedWorkflowRuns(_currentWorkflow!).ConfigureAwait(false))];
-        } while (_currentWorkflowRuns.Count == 0 || _currentWorkflowRuns.Any(run => run.Status == "Running"));
+        } while (_currentWorkflowRuns.Count == 0 || _currentWorkflowRuns.Any(run => run.Status == WorkflowRunStatus.Running));
 
         var expectedEvents = table.CreateSet<WorkflowEvent>().ToList();
 
@@ -430,7 +431,7 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="workflow">The workflow instance from which to retrieve the workflow run. Cannot be null.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the workflow run that matches the
     /// current correlation identifier if set; otherwise, the most recent workflow run, or null if no runs are available.</returns>
-    protected async Task<Management.WorkflowRun?> GetReadyWorkflowRun(Management.Workflow workflow)
+    protected async Task<Management.IWorkflowRun?> GetReadyWorkflowRun(Management.IWorkflow workflow)
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
@@ -452,7 +453,7 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="workflow">The workflow instance from which to retrieve correlated workflow runs. Cannot be null.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of workflow runs that
     /// have the same correlation identifier as the current context.</returns>
-    protected async Task<IEnumerable<Management.WorkflowRun>> GetCorrelatedWorkflowRuns(Management.Workflow workflow)
+    protected async Task<IEnumerable<Management.IWorkflowRun>> GetCorrelatedWorkflowRuns(Management.IWorkflow workflow)
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
@@ -491,7 +492,7 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="retry">The current retry attempt count. Must be zero or greater. Used internally to limit the number of retries.</param>
     /// <returns>A tuple containing a Boolean value that is <see langword="true"/> if the workflow run is valid; otherwise, <see
     /// langword="false"/>. The second item is an optional error message if validation fails.</returns>
-    private static async Task<(bool, string?)> ValidateRun(Management.WorkflowRun workflowRun, IList<WorkflowEvent>? expectedEvents = null, int retry = 0)
+    private static async Task<(bool, string?)> ValidateRun(Management.IWorkflowRun workflowRun, IList<WorkflowEvent>? expectedEvents = null, int retry = 0)
     {
         try
         {
@@ -508,7 +509,7 @@ public abstract class BaseStepDefinition : IDisposable
             }
 
             await Task.Delay(retry * 3000).ConfigureAwait(false);
-            await workflowRun.Reload().ConfigureAwait(false);
+            await workflowRun.ReloadAsync().ConfigureAwait(false);
             return await ValidateRun(workflowRun, expectedEvents, retry + 1).ConfigureAwait(false);
         }
     }

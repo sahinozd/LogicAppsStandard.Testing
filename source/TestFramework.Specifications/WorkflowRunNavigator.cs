@@ -6,9 +6,9 @@ namespace LogicApps.TestFramework.Specifications;
 /// <summary>
 /// Provides navigation and querying capabilities for workflow run actions, including support for nested structures like loops, scopes, conditions, and switches.
 /// </summary>
-public class WorkflowRunNavigator(WorkflowRun workflowRun)
+public class WorkflowRunNavigator(IWorkflowRun workflowRun)
 {
-    private readonly WorkflowRun _workflowRun = workflowRun ?? throw new ArgumentNullException(nameof(workflowRun));
+    private readonly IWorkflowRun _workflowRun = workflowRun ?? throw new ArgumentNullException(nameof(workflowRun));
 
     /// <summary>
     /// Asynchronously retrieves the list of top-level actions for the current workflow run.

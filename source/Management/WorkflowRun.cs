@@ -12,7 +12,7 @@ namespace LogicApps.Management;
 /// <summary>
 /// Represents a single run of a Logic App workflow and provides methods to load actions and trigger information.
 /// </summary>
-public sealed class WorkflowRun
+public sealed class WorkflowRun : IWorkflowRun
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -85,7 +85,7 @@ public sealed class WorkflowRun
     /// Get the trigger metadata for this workflow run, loading it from the management API on first access.
     /// </summary>
     /// <returns>The <see cref="WorkflowRunTrigger"/> instance or null if not present.</returns>
-    public async Task<WorkflowRunTrigger?> GetWorkflowRunTriggerAsync()
+    public async Task<IWorkflowRunTrigger?> GetWorkflowRunTriggerAsync()
     {
         if (_trigger != null)
         {
@@ -100,7 +100,7 @@ public sealed class WorkflowRun
     /// Reload actions and trigger information for this run by clearing cached values and re-fetching from the API.
     /// </summary>
     /// <returns>A task that represents the asynchronous reload operation.</returns>
-    public async Task Reload()
+    public async Task ReloadAsync()
     {
         _trigger = null;
         _actions = null;

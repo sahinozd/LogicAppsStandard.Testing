@@ -8,7 +8,7 @@ namespace LogicApps.Management;
 /// <summary>
 /// Represents trigger configuration and metadata for a Logic App workflow. Provides methods to construct trigger URLs and execute the trigger.
 /// </summary>
-public sealed class WorkflowTrigger
+public sealed class WorkflowTrigger : IWorkflowTrigger
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -66,7 +66,7 @@ public sealed class WorkflowTrigger
     /// <param name="content">Optional request content to post to the trigger endpoint.</param>
     /// <param name="requestHeaders">Optional headers for the request.</param>
     /// <returns>Execution response wrapped in a <see cref="WorkflowTriggerExecutionResponse"/>.</returns>
-    public async Task<WorkflowTriggerExecutionResponse> Run(HttpContent? content, Dictionary<string, string>? requestHeaders = null)
+    public async Task<WorkflowTriggerExecutionResponse> RunAsync(HttpContent? content, Dictionary<string, string>? requestHeaders = null)
     {
         HttpResponseMessage? response;
 
