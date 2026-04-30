@@ -29,6 +29,7 @@ internal sealed class WorkflowRunTriggerTests
         _configuration["SubscriptionId"].Returns("subscription-id");
         _configuration["ResourceGroup"].Returns("resource-group");
         _configuration["LogicAppName"].Returns("logic-app");
+        _configuration["LogicAppApiVersion"].Returns("2025-05-01");
 
         // Load workflow run details from JSON file
         var filePath = Path.Combine(AppContext.BaseDirectory, "ManagementApiResponseMessages", "Workflow-run-content.json");
