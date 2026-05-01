@@ -646,7 +646,10 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (_disposedValue) return;
+        if (_disposedValue)
+        {
+            return;
+        }
 
         if (disposing)
         {

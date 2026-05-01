@@ -116,7 +116,9 @@ public class AzureHttpClient : IAzureHttpClient
             foreach (var header in headers)
             {
                 if (httpClient.DefaultRequestHeaders.Contains(header.Key))
+                {
                     httpClient.DefaultRequestHeaders.Remove(header.Key);
+                }
 
                 httpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
             }

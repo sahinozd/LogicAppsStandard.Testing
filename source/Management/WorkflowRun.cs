@@ -142,7 +142,10 @@ public sealed class WorkflowRun : IWorkflowRun
     /// <returns>The matching <see cref="BaseAction"/>, or null if not found.</returns>
     public async Task<List<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(name)) return null;
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
 
         // We use SelectMany(Traverse) to lazily flatten the tree of actions
         // into a single enumerable. This avoids allocating an intermediate
@@ -260,7 +263,10 @@ public sealed class WorkflowRun : IWorkflowRun
     private static IEnumerable<BaseAction> Traverse(BaseAction? action)
     {
         // If the provided action is null there is nothing to traverse.
-        if (action is null) yield break;
+        if (action is null)
+        {
+            yield break;
+        }
 
         // Yield the current action first. This implements a pre-order traversal: the parent is returned before its children.
         // Consumers of this iterator will therefore see the top-level action before any nested actions.

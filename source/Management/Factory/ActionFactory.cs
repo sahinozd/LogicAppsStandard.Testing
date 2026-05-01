@@ -96,7 +96,9 @@ public class ActionFactory : IActionFactory
                    ?? string.Empty;
 
         if (_map?.TryGetValue(type, out var handler) ?? false)
+        {
             return handler(name, node, repetitionIndex);
+        }
 
         return CreateAction(name, repetitionIndex);
     }

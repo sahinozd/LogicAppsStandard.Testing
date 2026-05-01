@@ -185,7 +185,10 @@ public abstract class BaseAction
     private static Correlation? MapCorrelation(WorkflowRunDetailsActionProperties? properties)
     {
         var correlation = properties?.Correlation;
-        if (correlation == null) return null;
+        if (correlation == null)
+        {
+            return null;
+        }
 
         return new Correlation
         {
@@ -202,7 +205,10 @@ public abstract class BaseAction
     private static Error? MapError(WorkflowRunDetailsActionProperties? properties)
     {
         var error = properties?.Error;
-        if (error == null) return null;
+        if (error == null)
+        {
+            return null;
+        }
 
         return new Error
         {
@@ -221,7 +227,9 @@ public abstract class BaseAction
     private static async Task<(ActionContent?, JToken?)> BuildContentAsync(IActionHelper actionHelper, WorkflowRunDetailsActionContent? link)
     {
         if (link == null)
+        {
             return (null, null);
+        }
 
         var wfActionContent = actionHelper.GetWorkflowRunActionContent(link);
 
