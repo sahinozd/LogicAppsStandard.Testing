@@ -48,6 +48,8 @@ public sealed class WorkflowRun : IWorkflowRun
 
     public string? WaitEndTime { get; private set; }
 
+    public Error? RunError { get; private set; }
+
     private WorkflowRun(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -67,14 +69,14 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Results are cached for subsequent calls.
     /// </summary>
     /// <returns>List of <see cref="BaseAction"/> instances representing the run's actions.</returns>
-    public async Task<List<BaseAction>> GetWorkflowRunActionsAsync()
+    public async Task<List<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
     {
         if (_actions is { Count: > 0 })
         {
             return _actions;
         }
 
-        _actions = await BuildActionListFromWorkflowDefinition().ConfigureAwait(false);
+        _actions = await BuildActionListFromWorkflowDefinition(cancellationToken).ConfigureAwait(false);
         // Sort the children on start time
         _actions = [.. _actions.OrderBy(c => c.StartTime)];
 
@@ -85,13 +87,15 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Get the trigger metadata for this workflow run, loading it from the management API on first access.
     /// </summary>
     /// <returns>The <see cref="WorkflowRunTrigger"/> instance or null if not present.</returns>
-    public async Task<IWorkflowRunTrigger?> GetWorkflowRunTriggerAsync()
+    public async Task<IWorkflowRunTrigger?> GetWorkflowRunTriggerAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (_trigger != null)
         {
             return _trigger;
         }
-        
+
         _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!).ConfigureAwait(false);
         return _trigger;
     }
@@ -100,13 +104,13 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Reload actions and trigger information for this run by clearing cached values and re-fetching from the API.
     /// </summary>
     /// <returns>A task that represents the asynchronous reload operation.</returns>
-    public async Task ReloadAsync()
+    public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         _trigger = null;
         _actions = null;
 
-        await GetWorkflowRunActionsAsync().ConfigureAwait(false);
-        await GetWorkflowRunTriggerAsync().ConfigureAwait(false);
+        await GetWorkflowRunActionsAsync(cancellationToken).ConfigureAwait(false);
+        await GetWorkflowRunTriggerAsync(cancellationToken).ConfigureAwait(false);
     }
    
     /// <summary>
@@ -134,8 +138,9 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Returns null if no matching action exists.
     /// </summary>
     /// <param name="name">Name of the action to locate. If null or empty the method returns null.</param>
+    /// <param name="cancellationToken"></param>
     /// <returns>The matching <see cref="BaseAction"/>, or null if not found.</returns>
-    public async Task<List<BaseAction>?> FindActionByNameAsync(string name)
+    public async Task<List<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(name)) return null;
 
@@ -146,7 +151,7 @@ public sealed class WorkflowRun : IWorkflowRun
 
         if(_actions == null)
         {
-            await GetWorkflowRunActionsAsync().ConfigureAwait(false);
+            await GetWorkflowRunActionsAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return _actions?
@@ -171,8 +176,9 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Parse the workflow definition to construct the action model and load details for each action using the action factory.
     /// </summary>
     /// <remarks>Internal helper used by <see cref="GetWorkflowRunActionsAsync"/>.</remarks>
-    private async Task<List<BaseAction>> BuildActionListFromWorkflowDefinition()
+    private async Task<List<BaseAction>> BuildActionListFromWorkflowDefinition(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         List<BaseAction> workflowRunActions = [];
 
         // The factory needs the workflow name and run id in order to retrieve metadata for the actions, so we set these properties before creating actions.
@@ -237,6 +243,12 @@ public sealed class WorkflowRun : IWorkflowRun
         StartTime = _workflowRunProperties.Properties?.StartTime;
         Status = _workflowRunProperties.Properties?.Status;
         WaitEndTime = _workflowRunProperties.Properties?.WaitEndTime;
+        RunError = new Error
+        {
+            Code = _workflowRunProperties.Properties?.Error?.Code,
+            Message = _workflowRunProperties.Properties?.Error?.Message
+        };
+
     }
 
     /// <summary>

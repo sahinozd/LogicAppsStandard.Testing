@@ -972,7 +972,7 @@ internal sealed class WorkflowRunTests
         var workflowRun = await WorkflowRun.CreateAsync(_configuration, _azureManagementRepository, _actionFactory, _actionHelper, WorkflowName, _workflowRunProperties, invalidDefinition).ConfigureAwait(false);
 
         // Assert
-        var exception = Assert.ThrowsAsync<InvalidOperationException>(workflowRun.GetWorkflowRunActionsAsync);
+        var exception = Assert.ThrowsAsync<InvalidOperationException>(() => workflowRun.GetWorkflowRunActionsAsync());
         Assert.That(exception.Message, Does.Contain("Workflow definition does not contain a valid 'actions' section"));
     }
 

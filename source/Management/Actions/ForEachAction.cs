@@ -4,7 +4,6 @@ using LogicApps.Management.Models.Enums;
 using LogicApps.Management.Models.RestApi;
 using LogicApps.Management.Repository;
 using Microsoft.Extensions.Configuration;
-using System.Xml.Linq;
 
 namespace LogicApps.Management.Actions;
 

@@ -78,12 +78,7 @@ public abstract class BaseStepDefinition : IDisposable
         var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
         await trigger.RunAsync(null).ConfigureAwait(false);
 
-        Management.IWorkflowRun? currentRun;
-        do
-        {
-            currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-        } while (currentRun?.Status == WorkflowRunStatus.Running);
-
+        var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
     }
@@ -103,12 +98,7 @@ public abstract class BaseStepDefinition : IDisposable
             var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
             await trigger.RunAsync(content).ConfigureAwait(false);
 
-            Management.IWorkflowRun? currentRun;
-            do
-            {
-                currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-            } while (currentRun?.Status == WorkflowRunStatus.Running);
-
+            var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
             _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
             CurrentCorrelationId = currentRun?.CorrelationId;
         }
@@ -153,12 +143,7 @@ public abstract class BaseStepDefinition : IDisposable
         var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
         await trigger.RunAsync(content).ConfigureAwait(false);
 
-        Management.IWorkflowRun? currentRun;
-        do
-        {
-            currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-        } while (currentRun?.Status == WorkflowRunStatus.Running);
-
+        var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
     }
@@ -395,10 +380,7 @@ public abstract class BaseStepDefinition : IDisposable
         CurrentWorkflowName = workflowName;
         _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(w => w.Name == workflowName);
 
-        do
-        {
-            _currentWorkflowRuns = [.. (await GetCorrelatedWorkflowRuns(_currentWorkflow!).ConfigureAwait(false))];
-        } while (_currentWorkflowRuns.Count == 0 || _currentWorkflowRuns.Any(run => run.Status == WorkflowRunStatus.Running));
+        _currentWorkflowRuns = [.. (await GetCorrelatedWorkflowRuns(_currentWorkflow!).ConfigureAwait(false))];
 
         var expectedEvents = table.CreateSet<WorkflowEvent>().ToList();
 
@@ -427,41 +409,70 @@ public abstract class BaseStepDefinition : IDisposable
     /// Asynchronously retrieves the workflow run that is ready for processing, based on the current correlation identifier if available.
     /// </summary>
     /// <remarks>If the current correlation identifier is set, the method returns the workflow run with a matching correlation identifier.
-    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.</remarks>
+    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.
+    /// Throws <see cref="TimeoutException"/> if no run is found within the polling timeout.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve the workflow run. Cannot be null.</param>
+    /// <param name="timeout">Maximum time to wait for the run to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the workflow run that matches the
     /// current correlation identifier if set; otherwise, the most recent workflow run, or null if no runs are available.</returns>
-    protected async Task<Management.IWorkflowRun?> GetReadyWorkflowRun(Management.IWorkflow workflow)
+    protected async Task<Management.IWorkflowRun?> GetReadyWorkflowRun(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
-        await Task.Delay(3000).ConfigureAwait(false);
-        await workflow.ReloadAsync().ConfigureAwait(false);
+        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(2);
+        using var cancellationTokenSource = new CancellationTokenSource(effectiveTimeout);
 
-        var workflowRun = CurrentCorrelationId != null ?
-            (await workflow.GetWorkflowRunsAsync().ConfigureAwait(false)).FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId) :
-            (await workflow.GetWorkflowRunsAsync().ConfigureAwait(false)).MaxBy(run => run.StartTime);
+        while (true)
+        {
+            cancellationTokenSource.Token.ThrowIfCancellationRequested();
 
-        return workflowRun;
+            await Task.Delay(3000, cancellationTokenSource.Token).ConfigureAwait(false);
+            await workflow.ReloadAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+
+            var workflowRun = CurrentCorrelationId != null ?
+                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId) :
+                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).MaxBy(run => run.StartTime);
+
+            if (workflowRun != null && workflowRun.Status != WorkflowRunStatus.Running)
+            {
+                return workflowRun;
+            }
+        }
     }
 
     /// <summary>
     /// Asynchronously retrieves all workflow runs for the specified workflow that share the current correlation identifier.
     /// </summary>
     /// <remarks>This method reloads the workflow before retrieving its runs to ensure the latest state is used.
-    /// Only runs with a correlation identifier matching the current context are returned.</remarks>
+    /// Only runs with a correlation identifier matching the current context are returned.
+    /// Throws <see cref="TimeoutException"/> if no correlated runs appear within the polling timeout.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve correlated workflow runs. Cannot be null.</param>
+    /// <param name="timeout">Maximum time to wait for correlated runs to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of workflow runs that
     /// have the same correlation identifier as the current context.</returns>
-    protected async Task<IEnumerable<Management.IWorkflowRun>> GetCorrelatedWorkflowRuns(Management.IWorkflow workflow)
+    protected async Task<IEnumerable<Management.IWorkflowRun>> GetCorrelatedWorkflowRuns(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
-        await Task.Delay(3000).ConfigureAwait(false);
-        await workflow.ReloadAsync().ConfigureAwait(false);
-        var workflowRuns = (await workflow.GetWorkflowRunsAsync().ConfigureAwait(false)).Where(run => run.CorrelationId == CurrentCorrelationId);
+        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(2);
+        using var cancellationTokenSource = new CancellationTokenSource(effectiveTimeout);
 
-        return workflowRuns;
+        while (true)
+        {
+            cancellationTokenSource.Token.ThrowIfCancellationRequested();
+
+            await Task.Delay(3000, cancellationTokenSource.Token).ConfigureAwait(false);
+            await workflow.ReloadAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+
+            var workflowRuns = (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false))
+                .Where(run => run.CorrelationId == CurrentCorrelationId)
+                .ToList();
+
+            if (workflowRuns.Count > 0)
+            {
+                return workflowRuns;
+            }
+        }
     }
 
     #endregion

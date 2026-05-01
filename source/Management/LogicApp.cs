@@ -49,7 +49,7 @@ public sealed class LogicApp : ILogicApp
     /// <param name="actionHelper">ActionHelper object</param>
     /// <param name="loadRunsSince">Start date to retrieve runs from</param>
     /// <returns>A logic app standard object</returns>
-    public static Task<LogicApp> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, DateTime? loadRunsSince)
+    public static Task<ILogicApp> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, DateTime? loadRunsSince)
     {
         var logicApp = new LogicApp(configuration, azureManagementRepository, actionFactory, actionHelper, loadRunsSince);
         return logicApp.InitializeAsync();
@@ -62,7 +62,7 @@ public sealed class LogicApp : ILogicApp
     /// reflect the state at the time of retrieval and may not include changes made after the method completes.</remarks>
     /// <returns>A task that represents the asynchronous operation. The task result contains a list of workflows for the current
     /// Logic App. The list is empty if no workflows are found.</returns>
-    public async Task<List<IWorkflow>> GetWorkflowsAsync()
+    public async Task<List<IWorkflow>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
     {
         if (_workflows is { Count: > 0 })
         {
@@ -74,6 +74,7 @@ public sealed class LogicApp : ILogicApp
 
         while (!string.IsNullOrEmpty(uriString))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = await _azureManagementRepository.GetObjectAsync<Response<Models.RestApi.Workflow>>(new Uri(uriString, UriKind.Relative)).ConfigureAwait(false);
             if (result?.Value != null)
             {
@@ -87,6 +88,16 @@ public sealed class LogicApp : ILogicApp
         _workflows = [.. await Task.WhenAll(workflowTasks).ConfigureAwait(false)];
 
         return _workflows;
+    }
+
+    /// <summary>
+    /// Clears cached workflow data and reloads workflows from the management API.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    public async Task ReloadAsync(CancellationToken cancellationToken = default)
+    {
+        _workflows = null;
+        await GetWorkflowsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -114,7 +125,7 @@ public sealed class LogicApp : ILogicApp
     /// </summary>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized instance of the
     /// logic app.</returns>
-    private async Task<LogicApp> InitializeAsync()
+    private async Task<ILogicApp> InitializeAsync()
     {
         await GetLogicAppInformationAsync().ConfigureAwait(false);
         return this;

@@ -12,7 +12,7 @@ namespace LogicApps.Management;
 /// <summary>
 /// Represents a Logic App workflow and provides methods to load its definition and associated runs.
 /// </summary>
-public class Workflow : IWorkflow
+public sealed class Workflow : IWorkflow
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -77,7 +77,7 @@ public class Workflow : IWorkflow
     /// Retrieves workflow runs from the management API. Results are cached in the instance until <see cref="ReloadAsync"/> is called.
     /// </summary>
     /// <returns>List of <see cref="WorkflowRun"/> instances for this workflow.</returns>
-    public async Task<List<IWorkflowRun>> GetWorkflowRunsAsync()
+    public async Task<List<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default)
     {
         if (_workflowRuns is { Count: > 0 })
         {
@@ -97,6 +97,7 @@ public class Workflow : IWorkflow
 
         while (!string.IsNullOrEmpty(uriString))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = await _azureManagementRepository.GetObjectAsync<Response<Models.RestApi.WorkflowRun>>(new Uri(uriString, UriKind.Relative)).ConfigureAwait(false);
             if (result?.Value != null)
             {
@@ -121,23 +122,38 @@ public class Workflow : IWorkflow
     /// Returns the first workflow run matching the specified correlation ID, or null if none is found.
     /// </summary>
     /// <param name="correlationId">The correlation ID to match against workflow runs.</param>
+    /// <param name="cancellationToken"></param>
     /// <returns>The matching <see cref="IWorkflowRun"/>, or null.</returns>
-    public async Task<IWorkflowRun?> GetWorkflowRunByCorrelationIdAsync(string correlationId)
+    public async Task<IWorkflowRun?> GetWorkflowRunByCorrelationIdAsync(string correlationId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(correlationId);
 
-        var runs = await GetWorkflowRunsAsync().ConfigureAwait(false);
+        var runs = await GetWorkflowRunsAsync(cancellationToken).ConfigureAwait(false);
         return runs.FirstOrDefault(r => r.CorrelationId == correlationId);
+    }
+
+    /// <summary>
+    /// Returns the workflow run with the specified Azure-assigned run ID, or null if none is found.
+    /// </summary>
+    /// <param name="runId">The Azure run ID (the <c>Name</c> field on the run resource).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The matching <see cref="IWorkflowRun"/>, or null.</returns>
+    public async Task<IWorkflowRun?> GetWorkflowRunByIdAsync(string runId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(runId);
+
+        var runs = await GetWorkflowRunsAsync(cancellationToken).ConfigureAwait(false);
+        return runs.FirstOrDefault(r => r.Name == runId);
     }
 
     /// <summary>
     /// Clears cached run data and reloads runs from the management API.
     /// </summary>
     /// <returns>A task representing the reload operation.</returns>
-    public async Task ReloadAsync()
+    public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         _workflowRuns = null;
-        await GetWorkflowRunsAsync().ConfigureAwait(false);
+        await GetWorkflowRunsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

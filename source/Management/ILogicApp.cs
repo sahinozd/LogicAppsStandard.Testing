@@ -21,6 +21,13 @@ public interface ILogicApp
     /// Retrieves the list of workflows associated with this Logic App.
     /// Subsequent calls may return cached results until the instance is reloaded.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A list of <see cref="IWorkflow"/> instances for this Logic App.</returns>
-    Task<List<IWorkflow>> GetWorkflowsAsync();
+    Task<List<IWorkflow>> GetWorkflowsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clears cached workflow data and reloads workflows from the management API.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    Task ReloadAsync(CancellationToken cancellationToken = default);
 }
