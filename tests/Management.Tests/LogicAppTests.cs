@@ -4,6 +4,7 @@ using LogicApps.Management.Models.RestApi;
 using LogicApps.Management.Repository;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using NSubstitute.Core;
 using NUnit.Framework;
@@ -425,5 +426,52 @@ internal sealed class LogicAppTests
             Assert.That(capturedUri.ToString(), Does.Contain(apiVersion));
             Assert.That(capturedUri.ToString(), Does.Contain("Microsoft.Web/sites"));
         }
+    }
+
+    [Test]
+    public async Task GetWorkflowsAsync_Should_Follow_NextLink_When_Response_Is_Paged()
+    {
+        // Arrange
+        _azureManagementRepository
+            .GetObjectAsync<Models.RestApi.LogicApp>(Arg.Any<Uri>())
+            .Returns(Task.FromResult(_logicAppResponse));
+
+        var page1Workflow = new Models.RestApi.Workflow { Id = "/workflows/wf1", Name = "logic-app/wf1" };
+        var page2Workflow = new Models.RestApi.Workflow { Id = "/workflows/wf2", Name = "logic-app/wf2" };
+
+        var callCount = 0;
+        _azureManagementRepository
+            .GetObjectAsync<Response<Models.RestApi.Workflow>>(Arg.Any<Uri>())
+            .Returns(_ =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return Task.FromResult<Response<Models.RestApi.Workflow>?>(new Response<Models.RestApi.Workflow>
+                    {
+                        Value = [page1Workflow],
+                        NextLink = "https://management.azure.com/subscriptions/subscription-id/resourceGroups/resource-group/providers/Microsoft.Web/sites/logic-app/workflows?api-version=2025-05-01&$skiptoken=page2"
+                    });
+                }
+
+                return Task.FromResult<Response<Models.RestApi.Workflow>?>(new Response<Models.RestApi.Workflow>
+                {
+                    Value = [page2Workflow],
+                    NextLink = null
+                });
+            });
+
+        _azureManagementRepository
+            .GetObjectAsync<JObject>(Arg.Any<Uri>())
+            .Returns(Task.FromResult<JObject?>(null));
+
+        var logicApp = await LogicApp.CreateAsync(_configuration, _azureManagementRepository, _actionFactory, _actionHelper, null).ConfigureAwait(false);
+
+        // Act
+        var workflows = await logicApp.GetWorkflowsAsync().ConfigureAwait(false);
+
+        // Assert - both pages were fetched and merged
+        Assert.That(workflows, Has.Count.EqualTo(2));
+        await _azureManagementRepository.Received(2).GetObjectAsync<Response<Models.RestApi.Workflow>>(Arg.Any<Uri>()).ConfigureAwait(false);
     }
 }

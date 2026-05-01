@@ -11,7 +11,7 @@ namespace LogicApps.Management;
 /// Represents the trigger information for a single workflow run. This type loads trigger metadata and any
 /// linked inputs/outputs from the management API and exposes them as strong-typed properties.
 /// </summary>
-public sealed class WorkflowRunTrigger
+public sealed class WorkflowRunTrigger : IWorkflowRunTrigger
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -84,8 +84,7 @@ public sealed class WorkflowRunTrigger
     /// </summary>
     private async Task SetPropertiesAsync()
     {
-        // This is the only request that uses the old 2018 api version.
-        var relativeUri = new Uri($"/subscriptions/{_configuration[StringConstants.SubscriptionId]!}/resourceGroups/{_configuration[StringConstants.ResourceGroup]!}/providers/Microsoft.Web/sites/{_configuration[StringConstants.LogicAppName]!}/hostruntime/runtime/webhooks/workflow/api/management/workflows/{_workflowName}/runs/{_runId}?api-version=2025-05-01", UriKind.Relative);
+        var relativeUri = new Uri($"/subscriptions/{_configuration[StringConstants.SubscriptionId]!}/resourceGroups/{_configuration[StringConstants.ResourceGroup]!}/providers/Microsoft.Web/sites/{_configuration[StringConstants.LogicAppName]!}/hostruntime/runtime/webhooks/workflow/api/management/workflows/{_workflowName}/runs/{_runId}?api-version={_configuration[StringConstants.LogicAppApiVersion]!}", UriKind.Relative);
         var result = await _azureManagementRepository.GetObjectAsync<WorkflowRunDetails>(relativeUri).ConfigureAwait(false);
         var trigger = result?.Properties?.Trigger;
 

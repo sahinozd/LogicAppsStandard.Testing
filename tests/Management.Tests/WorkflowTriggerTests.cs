@@ -576,7 +576,7 @@ internal sealed class WorkflowTriggerTests
         var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
         // Act
-        var response = await trigger.Run(null).ConfigureAwait(false);
+        var response = await trigger.RunAsync(null).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -636,7 +636,7 @@ internal sealed class WorkflowTriggerTests
         var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
         // Act
-        var response = await trigger.Run(null).ConfigureAwait(false);
+        var response = await trigger.RunAsync(null).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -697,7 +697,7 @@ internal sealed class WorkflowTriggerTests
         using var content = new StringContent("""{"testData": "value"}""");
 
         // Act
-        var response = await trigger.Run(content).ConfigureAwait(false);
+        var response = await trigger.RunAsync(content).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -764,7 +764,7 @@ internal sealed class WorkflowTriggerTests
         };
 
         // Act
-        await trigger.Run(content, requestHeaders).ConfigureAwait(false);
+        await trigger.RunAsync(content, requestHeaders).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())

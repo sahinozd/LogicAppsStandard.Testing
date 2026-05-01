@@ -29,7 +29,7 @@ public abstract class BaseAction
 
     public DateTime? EndTime { get; set; }
 
-    public ActionError? Error { get; set; }
+    public Error? Error { get; set; }
 
     public string? Id { get; set; }
 
@@ -199,12 +199,12 @@ public abstract class BaseAction
     /// </summary>
     /// <param name="properties">The action properties containing error details to map. Can be null.</param>
     /// <returns>An ActionError instance containing the mapped error details if an error is present; otherwise, null.</returns>
-    private static ActionError? MapError(WorkflowRunDetailsActionProperties? properties)
+    private static Error? MapError(WorkflowRunDetailsActionProperties? properties)
     {
         var error = properties?.Error;
         if (error == null) return null;
 
-        return new ActionError
+        return new Error
         {
             Code = error.Code,
             Message = error.Message

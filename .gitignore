@@ -59,3 +59,7 @@ nunit-*.xml
 /.vs/ProjectEvaluation/*
 /tests/TestFramework.IntegrationTests/appsettings.local.json
 /tests/Management.Tests/appsettings.local.json
+/.vs/LogicAppsStandard.Testing/CopilotIndices/18.5.39187.10602
+/.vs/LogicAppsStandard.Testing.slnx/v18
+/.vs/LogicAppsStandard.Testing.slnx/FileContentIndex
+/.vs/VSWorkspaceState.json

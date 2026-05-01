@@ -448,7 +448,7 @@ internal sealed class WorkflowRunTests
         await workflowRun.GetWorkflowRunActionsAsync().ConfigureAwait(false);
 
         // Act
-        await workflowRun.Reload().ConfigureAwait(false);
+        await workflowRun.ReloadAsync().ConfigureAwait(false);
 
         // Assert - Verify that SetWorkflowRunProperties was called twice (initial load + reload)
         _actionFactory.Received(2).SetWorkflowRunProperties(WorkflowName, _workflowRunProperties.Name!);
@@ -1047,7 +1047,7 @@ internal sealed class WorkflowRunTests
         await workflowRun.GetWorkflowRunTriggerAsync().ConfigureAwait(false);
 
         // Act
-        await workflowRun.Reload().ConfigureAwait(false);
+        await workflowRun.ReloadAsync().ConfigureAwait(false);
 
         // Assert - Both actions and trigger should be reloaded
         _actionFactory.Received(2).SetWorkflowRunProperties(WorkflowName, _workflowRunProperties.Name!);

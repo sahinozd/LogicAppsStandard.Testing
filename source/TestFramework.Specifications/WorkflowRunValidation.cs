@@ -3,9 +3,9 @@ using LogicApps.TestFramework.Specifications.Models;
 
 namespace LogicApps.TestFramework.Specifications;
 
-public class WorkflowRunValidation(Management.WorkflowRun workflowRun)
+public class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
 {
-    private readonly Management.WorkflowRun _workflowRun = workflowRun ?? throw new ArgumentNullException(nameof(workflowRun));
+    private readonly Management.IWorkflowRun _workflowRun = workflowRun ?? throw new ArgumentNullException(nameof(workflowRun));
     private readonly WorkflowRunNavigator _navigator = new(workflowRun);
 
     #region Legacy/Existing Validation Methods (Backward Compatibility)
