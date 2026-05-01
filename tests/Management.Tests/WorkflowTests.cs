@@ -465,6 +465,55 @@ internal sealed class WorkflowTests
         Assert.That(workflow.Definition, Is.Null);
     }
 
+    [Test]
+    public async Task GetWorkflowRunsAsync_Should_Follow_NextLink_When_Response_Is_Paged()
+    {
+        // Arrange
+        _azureManagementRepository
+            .GetObjectAsync<JObject>(Arg.Any<Uri>())
+            .Returns(ReturnWorkflowDefinition);
+
+        var page1Run = JsonConvert.DeserializeObject<Models.RestApi.WorkflowRun>(
+            await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "ManagementApiResponseMessages", "Workflow-run-content.json")).ConfigureAwait(false))!;
+        var page2Run = JsonConvert.DeserializeObject<Models.RestApi.WorkflowRun>(
+            await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "ManagementApiResponseMessages", "Workflow-run-content.json")).ConfigureAwait(false))!;
+
+        var callCount = 0;
+        _azureManagementRepository
+            .GetObjectAsync<Response<Models.RestApi.WorkflowRun>>(Arg.Any<Uri>())
+            .Returns(_ =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return Task.FromResult<Response<Models.RestApi.WorkflowRun>?>(new Response<Models.RestApi.WorkflowRun>
+                    {
+                        Value = [page1Run],
+                        NextLink = "https://management.azure.com/subscriptions/subscription-id/resourceGroups/resource-group/providers/Microsoft.Web/sites/logic-app/workflows/workflow/runs?api-version=2025-05-01&$skiptoken=page2"
+                    });
+                }
+
+                return Task.FromResult<Response<Models.RestApi.WorkflowRun>?>(new Response<Models.RestApi.WorkflowRun>
+                {
+                    Value = [page2Run],
+                    NextLink = null
+                });
+            });
+
+        _azureManagementRepository
+            .GetObjectAsync<WorkflowRunDetailsAction>(Arg.Any<Uri>())
+            .Returns(Task.FromResult<WorkflowRunDetailsAction?>(null));
+
+        var workflow = await Workflow.CreateAsync(_configuration, _azureManagementRepository, _actionFactory, _actionHelper, _workflowProperties, null).ConfigureAwait(false);
+
+        // Act
+        var runs = await workflow.GetWorkflowRunsAsync().ConfigureAwait(false);
+
+        // Assert - both pages were fetched and merged
+        Assert.That(runs, Has.Count.EqualTo(2));
+        await _azureManagementRepository.Received(2).GetObjectAsync<Response<Models.RestApi.WorkflowRun>>(Arg.Any<Uri>()).ConfigureAwait(false);
+    }
+
     private Task<JObject?> ReturnWorkflowDefinition(CallInfo arg)
     {
         return Task.FromResult(_workflowDefinitionResponse);
