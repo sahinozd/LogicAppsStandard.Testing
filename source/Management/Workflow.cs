@@ -77,11 +77,11 @@ public sealed class Workflow : IWorkflow
     /// Retrieves workflow runs from the management API. Results are cached in the instance until <see cref="ReloadAsync"/> is called.
     /// </summary>
     /// <returns>List of <see cref="WorkflowRun"/> instances for this workflow.</returns>
-    public async Task<List<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default)
     {
         if (_workflowRuns is { Count: > 0 })
         {
-            return _workflowRuns;
+            return _workflowRuns.AsReadOnly();
         }
 
         var dateFilter = string.Empty;
@@ -115,7 +115,7 @@ public sealed class Workflow : IWorkflow
         }
 
         _workflowRuns = workflowRuns;
-        return _workflowRuns;
+        return _workflowRuns.AsReadOnly();
     }
 
     /// <summary>

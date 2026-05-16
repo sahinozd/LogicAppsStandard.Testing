@@ -12,7 +12,7 @@ namespace LogicApps.Management.Factory;
 /// Factory responsible for creating <see cref="BaseAction"/> instances from JSON nodes (Newtonsoft <see cref="Newtonsoft.Json.Linq.JObject"/>).
 /// The factory reads the action "type" and constructs the appropriate concrete action model, recursively creating any nested child actions.
 /// </summary>
-public class ActionFactory : IActionFactory
+public sealed class ActionFactory : IActionFactory
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -21,7 +21,7 @@ public class ActionFactory : IActionFactory
     private string? _workflowName;
     private string? _runId;
     private readonly Dictionary<string, object> _collectionBag = [];
-    private Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>>? _map;
+    private readonly Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>> _map;
 
     /// <summary>
     /// Initializes a new instance of the ActionFactory class with the specified configuration, Azure management
@@ -37,7 +37,7 @@ public class ActionFactory : IActionFactory
         _azureManagementRepository = azureManagementRepository ?? throw new ArgumentNullException(nameof(azureManagementRepository));
         _actionHelper = actionHelper ?? throw new ArgumentNullException(nameof(actionHelper));
 
-        InitializeMap();
+        _map = InitializeMap();
     }
 
     /// <summary>
@@ -48,9 +48,9 @@ public class ActionFactory : IActionFactory
     /// <remarks>
     /// Supports: Scope, Until, ForEach/Foreach, Switch, If/Condition, and Action (default). Implements Strategy + Factory Pattern.
     /// </remarks>
-    private void InitializeMap()
+    private Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>> InitializeMap()
     {
-        _map = new Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>>
+        return new Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>>
         {
             ["Scope"] = async (name, jObject, repetitionIndex) => await CreateScope(name, jObject, repetitionIndex).ConfigureAwait(false),
             ["Until"] = async (name, jObject, repetitionIndex) => await CreateUntil(name, jObject, repetitionIndex).ConfigureAwait(false),
@@ -95,7 +95,7 @@ public class ActionFactory : IActionFactory
                    ?? node["Type"]?.ToString()
                    ?? string.Empty;
 
-        if (_map?.TryGetValue(type, out var handler) ?? false)
+        if (_map.TryGetValue(type, out var handler))
         {
             return handler(name, node, repetitionIndex);
         }

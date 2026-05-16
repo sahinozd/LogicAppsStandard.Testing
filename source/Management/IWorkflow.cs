@@ -32,8 +32,8 @@ public interface IWorkflow
     /// Retrieves workflow runs from the management API. Results are cached in the instance until <see cref="ReloadAsync"/> is called.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>List of <see cref="IWorkflowRun"/> instances for this workflow.</returns>
-    Task<List<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default);
+    /// <returns>Read-only list of <see cref="IWorkflowRun"/> instances for this workflow.</returns>
+    Task<IReadOnlyList<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns the first workflow run matching the specified correlation ID, or null if none is found.

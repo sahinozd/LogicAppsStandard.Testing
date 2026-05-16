@@ -62,11 +62,11 @@ public sealed class LogicApp : ILogicApp
     /// reflect the state at the time of retrieval and may not include changes made after the method completes.</remarks>
     /// <returns>A task that represents the asynchronous operation. The task result contains a list of workflows for the current
     /// Logic App. The list is empty if no workflows are found.</returns>
-    public async Task<List<IWorkflow>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<IWorkflow>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
     {
         if (_workflows is { Count: > 0 })
         {
-            return _workflows;
+            return _workflows.AsReadOnly();
         }
 
         var uriString = $"/subscriptions/{_configuration[StringConstants.SubscriptionId]!}/resourceGroups/{_configuration[StringConstants.ResourceGroup]!}/providers/Microsoft.Web/sites/{_configuration[StringConstants.LogicAppName]!}/workflows?api-version={_configuration[StringConstants.LogicAppApiVersion]!}";
@@ -87,7 +87,7 @@ public sealed class LogicApp : ILogicApp
         var workflowTasks = workflows.Select(workflow => Workflow.CreateAsync(_configuration, _azureManagementRepository, _actionFactory, _actionHelper, workflow, _loadRunsSince));
         _workflows = [.. await Task.WhenAll(workflowTasks).ConfigureAwait(false)];
 
-        return _workflows;
+        return _workflows.AsReadOnly();
     }
 
     /// <summary>

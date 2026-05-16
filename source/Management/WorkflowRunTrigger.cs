@@ -19,27 +19,27 @@ public sealed class WorkflowRunTrigger : IWorkflowRunTrigger
     private readonly string _workflowName;
     private readonly string _runId;
 
-    public Correlation? Correlation { get; set; }
+    public Correlation? Correlation { get; private set; }
 
     public string? DesignerName { get; private set; }
 
-    public DateTime? EndTime { get; set; }
+    public DateTime? EndTime { get; private set; }
 
     public JToken? Input { get; private set; }
 
     public WorkflowRunDetailsActionContent? InputsLink { get; private set; }
 
-    public string? Name { get; set; }
+    public string? Name { get; private set; }
 
-    public string? OriginHistoryName { get; set; }
+    public string? OriginHistoryName { get; private set; }
 
     public JToken? Output { get; private set; }
 
     public WorkflowRunDetailsActionContent? OutputsLink { get; private set; }
 
-    public DateTime? StartTime { get; set; }
+    public DateTime? StartTime { get; private set; }
 
-    public string? Status { get; set; }
+    public string? Status { get; private set; }
 
     /// <summary>
     /// Create a new instance of <see cref="WorkflowRunTrigger"/>. The instance is initialized by calling <see cref="InitializeAsync"/> via <see cref="CreateAsync"/>.

@@ -67,8 +67,8 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Get all actions declared in the workflow definition for this run and populate runtime details for each action.
     /// Results are cached for subsequent calls.
     /// </summary>
-    /// <returns>List of <see cref="BaseAction"/> instances representing the run's actions.</returns>
-    public async Task<List<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
+    /// <returns>Read-only list of <see cref="BaseAction"/> instances representing the run's actions.</returns>
+    public async Task<IReadOnlyList<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
     {
         if (_actions is { Count: > 0 })
         {
@@ -139,7 +139,7 @@ public sealed class WorkflowRun : IWorkflowRun
     /// <param name="name">Name of the action to locate. If null or empty the method returns null.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>The matching <see cref="BaseAction"/>, or null if not found.</returns>
-    public async Task<List<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(name))
         {

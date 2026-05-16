@@ -19,13 +19,13 @@ public sealed class WorkflowTrigger : IWorkflowTrigger
 
     public DateTime? CreatedTime { get; private set; }
 
-    public string? DesignerName { get; set; }
+    public string? DesignerName { get; private set; }
 
-    public string? Id { get; set; }
+    public string? Id { get; private set; }
 
     public string? LastExecutionTime { get; private set; }
 
-    public string? Name { get; set; }
+    public string? Name { get; private set; }
 
     public string? NextExecutionTime { get; private set; }
 
@@ -37,7 +37,7 @@ public sealed class WorkflowTrigger : IWorkflowTrigger
 
     public Uri? TriggerUrl { get; private set; }
 
-    public string? Type { get; set; }
+    public string? Type { get; private set; }
 
     private WorkflowTrigger(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
     {
