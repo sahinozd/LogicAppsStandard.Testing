@@ -8,7 +8,7 @@ namespace LogicApps.Management.Repository;
 /// This client handles authentication and basic HTTP operations without retry logic.
 /// Retry logic is handled at the repository layer.
 /// </summary>
-public class AzureHttpClient : IAzureHttpClient
+public sealed class AzureHttpClient : IAzureHttpClient
 {
     private readonly string _scope, _tenantId, _clientId, _clientSecret;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -227,7 +227,6 @@ public class AzureHttpClient : IAzureHttpClient
     public void Dispose()
     {
         Dispose(true);
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -236,7 +235,7 @@ public class AzureHttpClient : IAzureHttpClient
     /// <remarks>
     /// HttpClients created by IHttpClientFactory are managed by the factory and should not be disposed.
     /// </remarks>
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (_disposedValue)
         {

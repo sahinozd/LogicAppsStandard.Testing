@@ -96,7 +96,7 @@ public sealed class WorkflowRun : IWorkflowRun
             return _trigger;
         }
 
-        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!).ConfigureAwait(false);
+        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!, cancellationToken).ConfigureAwait(false);
         return _trigger;
     }
 

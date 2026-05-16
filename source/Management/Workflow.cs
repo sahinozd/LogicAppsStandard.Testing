@@ -57,8 +57,8 @@ public sealed class Workflow : IWorkflow
     /// <param name="actionHelper">Helper to fetch linked action content.</param>
     /// <param name="workflowProperties">API-provided workflow metadata.</param>
     /// <param name="loadRunsSince">Optional date to restrict run loading.</param>
-    /// <returns>An initialized <see cref="Workflow"/> instance.</returns>
-    public static async Task<Workflow> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, Models.RestApi.Workflow workflowProperties, DateTime? loadRunsSince)
+    /// <returns>An initialized <see cref="IWorkflow"/> instance.</returns>
+    public static async Task<IWorkflow> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, Models.RestApi.Workflow workflowProperties, DateTime? loadRunsSince)
     {
         var workflow = new Workflow(configuration, azureManagementRepository, actionFactory, actionHelper, workflowProperties, loadRunsSince);
         return await workflow.InitializeAsync().ConfigureAwait(false);

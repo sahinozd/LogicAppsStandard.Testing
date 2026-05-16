@@ -20,9 +20,8 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     /// <typeparam name="T">The type into which the response content is deserialized.</typeparam>
     /// <param name="relativeUri">The relative URI of the resource to request.</param>
     /// <param name="content">The HTTP content to send with the request. If null, a GET request is sent; otherwise, a POST request is sent.</param>
-    /// <param name="retryCount">Not used - kept for backwards compatibility.</param>
     /// <returns>The deserialized object of type T, or null if the response content is empty.</returns>
-    public async Task<T?> GetObjectAsync<T>(Uri relativeUri, HttpContent? content = null, int retryCount = 3)
+    public async Task<T?> GetObjectAsync<T>(Uri relativeUri, HttpContent? content = null)
     {
         var requestUri = new Uri(_baseAddress, relativeUri);
         

@@ -61,20 +61,21 @@ public sealed class WorkflowRunTrigger : IWorkflowRunTrigger
     /// <param name="actionHelper">Helper used to fetch linked action content.</param>
     /// <param name="workflowName">Name of the workflow.</param>
     /// <param name="runId">Identifier of the workflow run.</param>
+    /// <param name="cancellationToken"></param>
     /// <returns>An initialized <see cref="WorkflowRunTrigger"/> instance.</returns>
-    public static Task<WorkflowRunTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId)
+    public static Task<WorkflowRunTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId, CancellationToken cancellationToken = default)
     {
         var ret = new WorkflowRunTrigger(configuration, azureManagementRepository, actionHelper, workflowName, runId);
-        return ret.InitializeAsync();
+        return ret.InitializeAsync(cancellationToken);
     }
 
     /// <summary>
     /// Internal asynchronous initializer. Loads trigger properties and linked content.
     /// </summary>
     /// <returns>The initialized <see cref="WorkflowRunTrigger"/> instance.</returns>
-    private async Task<WorkflowRunTrigger> InitializeAsync()
+    private async Task<WorkflowRunTrigger> InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await SetPropertiesAsync().ConfigureAwait(false);
+        await SetPropertiesAsync(cancellationToken).ConfigureAwait(false);
         return this;
     }
 
@@ -82,9 +83,10 @@ public sealed class WorkflowRunTrigger : IWorkflowRunTrigger
     /// Load trigger metadata from the management API for this workflow run and populate instance properties including
     /// correlation, inputs/outputs and timing information.
     /// </summary>
-    private async Task SetPropertiesAsync()
+    private async Task SetPropertiesAsync(CancellationToken cancellationToken = default)
     {
         var relativeUri = new Uri($"/subscriptions/{_configuration[StringConstants.SubscriptionId]!}/resourceGroups/{_configuration[StringConstants.ResourceGroup]!}/providers/Microsoft.Web/sites/{_configuration[StringConstants.LogicAppName]!}/hostruntime/runtime/webhooks/workflow/api/management/workflows/{_workflowName}/runs/{_runId}?api-version={_configuration[StringConstants.LogicAppApiVersion]!}", UriKind.Relative);
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await _azureManagementRepository.GetObjectAsync<WorkflowRunDetails>(relativeUri).ConfigureAwait(false);
         var trigger = result?.Properties?.Trigger;
 
