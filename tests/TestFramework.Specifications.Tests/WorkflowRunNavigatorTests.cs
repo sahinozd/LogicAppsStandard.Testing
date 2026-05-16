@@ -390,7 +390,7 @@ internal sealed class WorkflowRunNavigatorTests
         Assert.That(result, Is.Null);
     }
 
-    private async Task<Management.WorkflowRun> CreateWorkflowRunAsync()
+    private async Task<Management.IWorkflowRun> CreateWorkflowRunAsync()
     {
         return await Management.WorkflowRun.CreateAsync(
             _configuration,

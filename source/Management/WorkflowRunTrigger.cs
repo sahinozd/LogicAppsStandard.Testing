@@ -63,10 +63,10 @@ public sealed class WorkflowRunTrigger : IWorkflowRunTrigger
     /// <param name="runId">Identifier of the workflow run.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>An initialized <see cref="WorkflowRunTrigger"/> instance.</returns>
-    public static Task<WorkflowRunTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId, CancellationToken cancellationToken = default)
+    public static async Task<IWorkflowRunTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId, CancellationToken cancellationToken = default)
     {
-        var ret = new WorkflowRunTrigger(configuration, azureManagementRepository, actionHelper, workflowName, runId);
-        return ret.InitializeAsync(cancellationToken);
+        var workflowRunTrigger = new WorkflowRunTrigger(configuration, azureManagementRepository, actionHelper, workflowName, runId);
+        return await workflowRunTrigger.InitializeAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

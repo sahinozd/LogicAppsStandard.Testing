@@ -34,6 +34,7 @@ public abstract class BaseStepDefinition : IDisposable
     private bool _disposedValue;
     private object? _transformedBody;
     private readonly TimeSpan _pollInterval;
+    private readonly IConfiguration _configuration;
 
     private List<Management.IWorkflowRun> _currentWorkflowRuns = [];
 
@@ -53,22 +54,30 @@ public abstract class BaseStepDefinition : IDisposable
 
     protected BaseStepDefinition()
     {
-        var configuration = AppSettings.Configuration;
+        _configuration = AppSettings.Configuration;
 
-        var loadRunsSinceMinutes = int.Parse(configuration["LoadRunsSinceMinutes"]!, CultureInfo.InvariantCulture);
-        var loadRunsSince = DateTime.UtcNow.AddMinutes(loadRunsSinceMinutes);
-
-        var pollIntervalSeconds = int.TryParse(configuration["PollIntervalSeconds"], out var parsedInterval) ? parsedInterval : 3;
+        var pollIntervalSeconds = int.TryParse(_configuration["PollIntervalSeconds"], out var parsedInterval) ? parsedInterval : 3;
         _pollInterval = TimeSpan.FromSeconds(pollIntervalSeconds);
 
-        InitializeLogicAppResources(configuration);
-        LogicApp = Management.LogicApp.CreateAsync(configuration, _logicAppAzureManagementRepository!, _actionFactory!, _actionHelper!, loadRunsSince).GetAwaiter().GetResult();
+        InitializeLogicAppResources(_configuration);
 
-        InitializeStorageAccountResources(configuration);
+        InitializeStorageAccountResources(_configuration);
         BlobStorageSender = new BlobStorageSender(_storageAccountAzureManagementRepository!);
 
-        InitializeServiceBusResources(configuration);
+        InitializeServiceBusResources(_configuration);
         ServiceBusMessageSender = new ServiceBusMessageSender(_serviceBusAzureManagementRepository!);
+    }
+
+    /// <summary>
+    /// Initializes the Logic App instance before each scenario. Runs asynchronously to avoid
+    /// blocking the constructor on a network call.
+    /// </summary>
+    [BeforeScenario(Order = 0)]
+    public async Task InitializeLogicAppAsync()
+    {
+        var loadRunsSinceMinutes = int.Parse(_configuration["LoadRunsSinceMinutes"]!, CultureInfo.InvariantCulture);
+        var loadRunsSince = DateTime.UtcNow.AddMinutes(loadRunsSinceMinutes);
+        LogicApp = await Management.LogicApp.CreateAsync(_configuration, _logicAppAzureManagementRepository!, _actionFactory!, _actionHelper!, loadRunsSince).ConfigureAwait(false);
     }
 
     #region Gherkin Steps - When (Triggers)
@@ -432,11 +441,12 @@ public abstract class BaseStepDefinition : IDisposable
             await Task.Delay(_pollInterval, cancellationTokenSource.Token).ConfigureAwait(false);
             await workflow.ReloadAsync(cancellationTokenSource.Token).ConfigureAwait(false);
 
-            var workflowRun = CurrentCorrelationId != null ?
-                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId) :
-                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).MaxBy(run => run.StartTime);
+            var runs = await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+            var workflowRun = CurrentCorrelationId != null
+                ? runs.FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId)
+                : runs.MaxBy(run => run.StartTime);
 
-            if (workflowRun != null && workflowRun.Status != WorkflowRunStatus.Running)
+            if (workflowRun != null && workflowRun.Status != WorkflowRunStatus.Running && workflowRun.Status != WorkflowRunStatus.Waiting)
             {
                 return workflowRun;
             }

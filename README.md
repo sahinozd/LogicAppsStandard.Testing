@@ -272,7 +272,8 @@ The integration test project reads configuration from an `appsettings.json` file
   "CorrelationIdActionName": "#{testFramework_correlation_id_action_name}",
   "VariableActionName": "Initialize_variables",
   "CorrelationIdVariableName": "correlationId",
-  "LoadRunsSinceMinutes": "-10"
+  "LoadRunsSinceMinutes": "-10",
+  "PollIntervalSeconds": "3"
 }
 ```
 
@@ -291,6 +292,61 @@ The integration test project reads configuration from an `appsettings.json` file
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
 | `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
+| `PollIntervalSeconds` | The number of seconds the framework waits between polling attempts while waiting for a workflow run to finish. Defaults to `3` if not specified. Increase this value to reduce Azure Management API call volume in slower environments. |
+
+### Local overrides with appsettings.local.json
+
+During local development you often need to supply real credentials without committing them to source control. The test framework supports an optional `appsettings.local.json` file that is layered on top of `appsettings.json` at runtime.
+
+- **Values in `appsettings.local.json` override the corresponding keys in `appsettings.json`.**
+- The file is optional — if it does not exist the framework runs with only `appsettings.json`.
+- **Add `appsettings.local.json` to your `.gitignore`** to prevent accidental commits of real credentials.
+
+A typical local file looks like:
+
+```json
+{
+  "ClientId": "your-real-client-id",
+  "ClientSecret": "your-real-client-secret",
+  "TenantId": "your-real-tenant-id",
+  "SubscriptionId": "your-real-subscription-id",
+  "ResourceGroup": "your-resource-group",
+  "LogicAppName": "your-logic-app-name",
+  "LogicAppApiVersion": "2024-04-01",
+  "ServiceBusNamespace": "your-servicebus-namespace",
+  "StorageAccount": "your-storage-account",
+  "CorrelationIdActionName": "Initialize_variables",
+  "VariableActionName": "Initialize_variables",
+  "CorrelationIdVariableName": "correlationId",
+  "LoadRunsSinceMinutes": "-10",
+  "PollIntervalSeconds": "3"
+}
+```
+
+---
+
+## Known Limitations
+
+### Stateless Workflows Are Not Supported
+
+This framework relies on the Azure Management REST API's **run history** endpoint to poll for completed workflow runs and navigate their action trees. **Stateless workflows do not persist run history by default**, so the Management API returns no run records for them. As a result, the polling loop will time out and no action assertions can be made.
+
+**Workaround:** Even though I have not tested it myself, you could use the following workaround. Enable run history for stateless workflows by setting `OperationOptions` to `WithStatelessRunHistory` in your Logic Apps Standard host configuration:
+
+```json
+{
+  "extensions": {
+    "workflow": {
+      "settings": {
+        "Runtime.FlowRetentionThreshold": "7.00:00:00",
+        "Runtime.Backend.FlowRunRetentionPeriod": "7.00:00:00"
+      }
+    }
+  }
+}
+```
+
+Or toggle it per-workflow in the designer under **Settings → General → Enable run history**. Once run history is enabled for a stateless workflow it behaves identically to a stateful workflow from this framework's perspective.
 
 ---
 

@@ -53,10 +53,10 @@ public sealed class WorkflowTrigger : IWorkflowTrigger
     /// <param name="azureManagementRepository">Azure management repository used to query trigger details.</param>
     /// <param name="workflowName">Workflow name.</param>
     /// <returns>Initialized <see cref="WorkflowTrigger"/> instance.</returns>
-    public static Task<WorkflowTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
+    public static async Task<IWorkflowTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
     {
-        var ret = new WorkflowTrigger(configuration, azureManagementRepository, workflowName);
-        return ret.InitializeAsync();
+        var workflowTrigger = new WorkflowTrigger(configuration, azureManagementRepository, workflowName);
+        return await workflowTrigger.InitializeAsync().ConfigureAwait(false);
     }
 
     /// <summary>

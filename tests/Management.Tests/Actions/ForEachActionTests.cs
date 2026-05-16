@@ -100,90 +100,90 @@ internal sealed class ForEachActionTests
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_Configuration_Is_Null()
+    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_Configuration_Is_NullAsync_Should_Throw_ArgumentNullException_When_Configuration_Is_Null()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
-        var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => forEachAction.GetAllActionRepetitions(null!, _azureManagementRepository, _actionHelper, "workflow", "123"));
+        var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => forEachAction.GetAllActionRepetitionsAsync(null!, _azureManagementRepository, _actionHelper, "workflow", "123"));
         Assert.That(argumentNullException.ParamName, Is.EqualTo("configuration"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_AzureManagementRepository_Is_Null()
+    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_Configuration_Is_NullAsync_Should_Throw_ArgumentNullException_When_AzureManagementRepository_Is_Null()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, null!, _actionHelper, "workflow", "123"));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, null!, _actionHelper, "workflow", "123"));
         Assert.That(argumentNullException.ParamName, Is.EqualTo("azureManagementRepository"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_ActionHelper_Is_Null()
+    public void GetScopeRepetitionsAsync_Should_Throw_ArgumentNullException_When_ActionHelper_Is_Null()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, null!, "workflow", "123"));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, null!, "workflow", "123"));
         Assert.That(argumentNullException.ParamName, Is.EqualTo("actionHelper"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_WorkflowName_Is_Null()
+    public void GetScopeRepetitionsAsync_Should_Throw_ArgumentNullException_When_WorkflowName_Is_Null()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, null!, "run"));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, null!, "run"));
         Assert.That(argumentNullException.ParamName, Is.EqualTo("workflowName"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentException_When_WorkflowName_Is_Empty()
+    public void GetScopeRepetitionsAsync_Should_Throw_ArgumentException_When_WorkflowName_Is_Empty()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentException = Assert.ThrowsAsync<ArgumentException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, string.Empty, "run"));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, string.Empty, "run"));
         Assert.That(argumentException.ParamName, Is.EqualTo("workflowName"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentNullException_When_RunId_Is_Null()
+    public void GetScopeRepetitionsAsync_Should_Throw_ArgumentNullException_When_RunId_Is_Null()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentNullException = Assert.ThrowsAsync<ArgumentNullException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, "workflow", null!));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", null!));
         Assert.That(argumentNullException.ParamName, Is.EqualTo("runId"));
     }
 
     [Test]
-    public void GetAllActionRepetitions_Should_Throw_ArgumentException_When_RunId_Is_Empty()
+    public void GetScopeRepetitionsAsync_Should_Throw_ArgumentException_When_RunId_Is_Empty()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
 
         // Act & Assert
         var argumentException = Assert.ThrowsAsync<ArgumentException>(() => 
-            forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, "workflow", string.Empty));
+            forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", string.Empty));
         Assert.That(argumentException.ParamName, Is.EqualTo("runId"));
     }
 
     [Test]
-    public async Task GetAllActionRepetitions_Should_Return_Empty_List_When_No_Repetitions_Exist()
+    public async Task GetScopeRepetitionsAsync_Should_Return_Empty_List_When_No_Repetitions_Exist()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
@@ -200,7 +200,7 @@ internal sealed class ForEachActionTests
             .Returns(emptyResponse);
 
         // Act
-        var result = await forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, "workflow", "123").ConfigureAwait(false);
+        var result = await forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", "123").ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -214,7 +214,7 @@ internal sealed class ForEachActionTests
     }
 
     [Test]
-    public async Task GetAllActionRepetitions_Should_Return_Repetitions_When_Single_Page_Exists()
+    public async Task GetScopeRepetitionsAsync_Should_Return_Repetitions_When_Single_Page_Exists()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
@@ -257,7 +257,7 @@ internal sealed class ForEachActionTests
             .Returns(response);
 
         // Act
-        var result = await forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, "workflow1", "run123").ConfigureAwait(false);
+        var result = await forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow1", "run123").ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -273,7 +273,7 @@ internal sealed class ForEachActionTests
     }
 
     [Test]
-    public async Task GetAllActionRepetitions_Should_Follow_NextLink_When_Multiple_Pages_Exist()
+    public async Task GetScopeRepetitionsAsync_Should_Follow_NextLink_When_Multiple_Pages_Exist()
     {
         // Arrange
         var forEachAction = new ForEachAction("Foreach_item", ActionType.ForEach);
@@ -322,7 +322,7 @@ internal sealed class ForEachActionTests
             .Returns(firstPageResponse, secondPageResponse);
 
         // Act
-        var result = await forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, "workflow1", "run123").ConfigureAwait(false);
+        var result = await forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow1", "run123").ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())

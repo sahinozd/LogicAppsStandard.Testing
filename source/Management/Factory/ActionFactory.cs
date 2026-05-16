@@ -20,7 +20,7 @@ public class ActionFactory : IActionFactory
 
     private string? _workflowName;
     private string? _runId;
-    private readonly Dictionary<string, object> _data = [];
+    private readonly Dictionary<string, object> _collectionBag = [];
     private Dictionary<string, Func<string, JObject, string?, Task<BaseAction>>>? _map;
 
     /// <summary>
@@ -468,7 +468,7 @@ public class ActionFactory : IActionFactory
         var actionRepetitions = GetFromCollectionBag<ForEachActionRepetition>(forEachAction.Name);
         if (actionRepetitions == null || actionRepetitions.Count == 0)
         {
-            actionRepetitions = await forEachAction.GetAllActionRepetitions(_configuration, _azureManagementRepository, _actionHelper, _workflowName, _runId).ConfigureAwait(false);
+            actionRepetitions = await forEachAction.GetAllActionRepetitionsAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, _runId).ConfigureAwait(false);
             AddToCollectionBag(forEachAction.Name, actionRepetitions);
 
             forEachAction.RepetitionCount ??= actionRepetitions.Count;
@@ -525,7 +525,7 @@ public class ActionFactory : IActionFactory
     /// <param name="list">List to store.</param>
     private void AddToCollectionBag<T>(string key, List<T> list)
     {
-        _data[key] = list;
+        _collectionBag[key] = list;
     }
 
     /// <summary>
@@ -533,14 +533,14 @@ public class ActionFactory : IActionFactory
     /// </summary>
     private void AppendToCollectionBag<T>(string key, List<T> list)
     {
-        if (_data.TryGetValue(key, out var existing) && existing is List<T> existingList)
+        if (_collectionBag.TryGetValue(key, out var existing) && existing is List<T> existingList)
         {
             existingList.AddRange(list);
-            _data[key] = existingList.Distinct().ToList();
+            _collectionBag[key] = existingList.Distinct().ToList();
             return;
         }
 
-        _data[key] = list.Distinct().ToList();
+        _collectionBag[key] = list.Distinct().ToList();
     }
 
     /// <summary>
@@ -551,7 +551,7 @@ public class ActionFactory : IActionFactory
     /// <returns>Cached list or null if not found.</returns>
     private List<T>? GetFromCollectionBag<T>(string key)
     {
-        if (_data.TryGetValue(key, out var value))
+        if (_collectionBag.TryGetValue(key, out var value))
         {
             return (List<T>)value;
         }

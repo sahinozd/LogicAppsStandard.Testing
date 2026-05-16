@@ -505,7 +505,7 @@ internal sealed class WorkflowTriggerTests
             .Returns(Task.FromResult(errorResponse));
 
         // Act
-        WorkflowTrigger? trigger = null;
+        IWorkflowTrigger? trigger = null;
         Exception? caughtException = null;
 
         try

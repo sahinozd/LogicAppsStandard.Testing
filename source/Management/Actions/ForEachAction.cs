@@ -14,7 +14,7 @@ namespace LogicApps.Management.Actions;
 public class ForEachAction(string name, ActionType actionType) : BaseAction(name, actionType)
 {
     /// <summary>
-    /// Historical repetitions for this ForEach action. Populated by calling <see cref="GetAllActionRepetitions"/>.
+    /// Historical repetitions for this ForEach action. Populated by calling <see cref="GetAllActionRepetitionsAsync"/>.
     /// </summary>
     public List<ForEachActionRepetition> Repetitions { get; set; } = [];
 
@@ -27,7 +27,7 @@ public class ForEachAction(string name, ActionType actionType) : BaseAction(name
     /// <param name="workflowName">The workflow name.</param>
     /// <param name="runId">The workflow run identifier.</param>
     /// <returns>List of <see cref="ForEachActionRepetition"/> instances representing each repetition.</returns>
-    public new async Task<List<ForEachActionRepetition>> GetAllActionRepetitions(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId)
+    public async Task<List<ForEachActionRepetition>> GetAllActionRepetitionsAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionHelper actionHelper, string workflowName, string runId)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(azureManagementRepository);
