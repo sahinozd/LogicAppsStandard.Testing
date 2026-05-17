@@ -57,8 +57,8 @@ public sealed class Workflow : IWorkflow
     /// <param name="actionHelper">Helper to fetch linked action content.</param>
     /// <param name="workflowProperties">API-provided workflow metadata.</param>
     /// <param name="loadRunsSince">Optional date to restrict run loading.</param>
-    /// <returns>An initialized <see cref="Workflow"/> instance.</returns>
-    public static async Task<Workflow> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, Models.RestApi.Workflow workflowProperties, DateTime? loadRunsSince)
+    /// <returns>An initialized <see cref="IWorkflow"/> instance.</returns>
+    public static async Task<IWorkflow> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, Models.RestApi.Workflow workflowProperties, DateTime? loadRunsSince)
     {
         var workflow = new Workflow(configuration, azureManagementRepository, actionFactory, actionHelper, workflowProperties, loadRunsSince);
         return await workflow.InitializeAsync().ConfigureAwait(false);
@@ -77,11 +77,11 @@ public sealed class Workflow : IWorkflow
     /// Retrieves workflow runs from the management API. Results are cached in the instance until <see cref="ReloadAsync"/> is called.
     /// </summary>
     /// <returns>List of <see cref="WorkflowRun"/> instances for this workflow.</returns>
-    public async Task<List<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<IWorkflowRun>> GetWorkflowRunsAsync(CancellationToken cancellationToken = default)
     {
         if (_workflowRuns is { Count: > 0 })
         {
-            return _workflowRuns;
+            return _workflowRuns.AsReadOnly();
         }
 
         var dateFilter = string.Empty;
@@ -115,7 +115,7 @@ public sealed class Workflow : IWorkflow
         }
 
         _workflowRuns = workflowRuns;
-        return _workflowRuns;
+        return _workflowRuns.AsReadOnly();
     }
 
     /// <summary>

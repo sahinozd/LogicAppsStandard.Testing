@@ -74,7 +74,6 @@ public abstract class BaseTransformationStepDefinition<TSource, TDestination> : 
     {
         CorrelationId = Guid.NewGuid().ToString();
 
-        //FileName = $"{CorrelationId}-rcv-source-data-{DateTime.UtcNow.ToString("yyyyMMddTHHmmss", CultureInfo.InvariantCulture)}.json";
         FileName = filename;
         var json = JsonConvert.SerializeObject(Message, new JsonSerializerSettings
         {
@@ -138,7 +137,7 @@ public abstract class BaseTransformationStepDefinition<TSource, TDestination> : 
             Assert.That(workflowRun, Is.Not.Null, "The run has not been validated yet.");
 
             var transformationActions = await workflowRun.FindActionByNameAsync(stepName).ConfigureAwait(false);
-            var transformationAction = transformationActions?.FirstOrDefault();
+            var transformationAction = transformationActions is { Count: > 0 } ? transformationActions[0] : null;
 
             var outputMessage = JsonConvert.DeserializeObject<TransformationOutput<string?>>(transformationAction!.Output!.ToString());
             Assert.That(outputMessage, Is.Not.Null, "The transformation resulted in Null.");

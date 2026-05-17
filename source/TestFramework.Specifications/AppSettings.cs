@@ -6,20 +6,11 @@ namespace LogicApps.TestFramework.Specifications;
 [ExcludeFromCodeCoverage]
 public static class AppSettings
 {
-    private static IConfiguration? _configuration;
-    public static IConfiguration Configuration
-    {
-        get
-        {
-            _configuration ??= new ConfigurationBuilder()
-#if DEBUG
-                // ReSharper disable once StringLiteralTypo
-                .AddJsonFile("appsettings.local.json")
-#else
-                    .AddJsonFile("appsettings.json")
-#endif
-                .Build();
-            return _configuration;
-        }
-    }
+    private static readonly Lazy<IConfiguration> LazyConfiguration = new(() =>
+        new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.local.json", optional: true)
+            .Build());
+
+    public static IConfiguration Configuration => LazyConfiguration.Value;
 }

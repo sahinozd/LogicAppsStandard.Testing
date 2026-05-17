@@ -24,15 +24,14 @@ public sealed class WorkflowRun : IWorkflowRun
     private readonly string _workflowName;
 
     private List<BaseAction>? _actions;
-    private WorkflowRunTrigger? _trigger;
-    private string? _correlationId;
+    private IWorkflowRunTrigger? _trigger;
 
     private readonly string _variableActionName;
     private readonly string _correlationIdVariableName;
 
     public string? ClientTrackingId { get; private set; }
 
-    public string? CorrelationId => _correlationId;
+    public string? CorrelationId { get; private set; }
 
     public string? EndTime { get; private set; }
 
@@ -68,8 +67,8 @@ public sealed class WorkflowRun : IWorkflowRun
     /// Get all actions declared in the workflow definition for this run and populate runtime details for each action.
     /// Results are cached for subsequent calls.
     /// </summary>
-    /// <returns>List of <see cref="BaseAction"/> instances representing the run's actions.</returns>
-    public async Task<List<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
+    /// <returns>Read-only list of <see cref="BaseAction"/> instances representing the run's actions.</returns>
+    public async Task<IReadOnlyList<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
     {
         if (_actions is { Count: > 0 })
         {
@@ -96,7 +95,7 @@ public sealed class WorkflowRun : IWorkflowRun
             return _trigger;
         }
 
-        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!).ConfigureAwait(false);
+        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!, cancellationToken).ConfigureAwait(false);
         return _trigger;
     }
 
@@ -126,10 +125,10 @@ public sealed class WorkflowRun : IWorkflowRun
     /// <param name="workflowDefinition">The JSON object representing the workflow definition.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized workflow run
     /// instance.</returns>
-    public static Task<WorkflowRun> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
+    public static async Task<IWorkflowRun> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
     {
-        var ret = new WorkflowRun(configuration, azureManagementRepository, actionFactory, actionHelper, workflowName, workflowRunProperties, workflowDefinition);
-        return ret.InitializeAsync();
+        var workflowRun = new WorkflowRun(configuration, azureManagementRepository, actionFactory, actionHelper, workflowName, workflowRunProperties, workflowDefinition);
+        return await workflowRun.InitializeAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -140,9 +139,12 @@ public sealed class WorkflowRun : IWorkflowRun
     /// <param name="name">Name of the action to locate. If null or empty the method returns null.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>The matching <see cref="BaseAction"/>, or null if not found.</returns>
-    public async Task<List<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(name)) return null;
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
 
         // We use SelectMany(Traverse) to lazily flatten the tree of actions
         // into a single enumerable. This avoids allocating an intermediate
@@ -225,7 +227,7 @@ public sealed class WorkflowRun : IWorkflowRun
                 .SelectTokens($"$..[?(@.name == '{_correlationIdVariableName}')]")
                 .FirstOrDefault();
 
-            _correlationId = match?["value"]?.ToString();
+            CorrelationId = match?["value"]?.ToString();
         }
     }
 
@@ -243,16 +245,22 @@ public sealed class WorkflowRun : IWorkflowRun
         StartTime = _workflowRunProperties.Properties?.StartTime;
         Status = _workflowRunProperties.Properties?.Status;
         WaitEndTime = _workflowRunProperties.Properties?.WaitEndTime;
-        RunError = new Error
-        {
-            Code = _workflowRunProperties.Properties?.Error?.Code,
-            Message = _workflowRunProperties.Properties?.Error?.Message
-        };
 
+        var errorCode = _workflowRunProperties.Properties?.Error?.Code;
+        var errorMessage = _workflowRunProperties.Properties?.Error?.Message;
+
+        if (!string.IsNullOrEmpty(errorCode) || !string.IsNullOrEmpty(errorMessage))
+        {
+            RunError = new Error
+            {
+                Code = errorCode,
+                Message = errorMessage
+            };
+        }
     }
 
     /// <summary>
-    /// Recursively traverse an action and yield the action itself followed by all actions nested under it.
+    /// Recursively traverse an action
     /// Implemented as an iterator method using <c>yield return</c> so callers can enumerate the flattened sequence of actions lazily.
     /// </summary>
     /// <param name="action">Action to traverse. If null, the sequence is empty.</param>
@@ -260,7 +268,10 @@ public sealed class WorkflowRun : IWorkflowRun
     private static IEnumerable<BaseAction> Traverse(BaseAction? action)
     {
         // If the provided action is null there is nothing to traverse.
-        if (action is null) yield break;
+        if (action is null)
+        {
+            yield break;
+        }
 
         // Yield the current action first. This implements a pre-order traversal: the parent is returned before its children.
         // Consumers of this iterator will therefore see the top-level action before any nested actions.

@@ -36,8 +36,8 @@ public interface IWorkflowRun
     /// Get all actions declared in the workflow definition for this run and populate runtime details for each action.
     /// Results are cached for subsequent calls.
     /// </summary>
-    /// <returns>List of <see cref="BaseAction"/> instances representing the run's actions.</returns>
-    Task<List<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default);
+    /// <returns>Read-only list of <see cref="BaseAction"/> instances representing the run's actions.</returns>
+    Task<IReadOnlyList<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get the trigger metadata for this workflow run, loading it from the management API on first access.
@@ -50,8 +50,8 @@ public interface IWorkflowRun
     /// </summary>
     /// <param name="name">Name of the action to locate.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>List of matching <see cref="BaseAction"/> instances, or null if none found.</returns>
-    Task<List<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default);
+    /// <returns>Read-only list of matching <see cref="BaseAction"/> instances, or null if none found.</returns>
+    Task<IReadOnlyList<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Reload actions and trigger information for this run by clearing cached values and re-fetching from the API.

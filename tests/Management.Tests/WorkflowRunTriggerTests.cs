@@ -601,54 +601,38 @@ internal sealed class WorkflowRunTriggerTests
     }
 
     [Test]
-    public async Task Properties_Should_Be_Settable()
+    public async Task Properties_Should_Be_Populated_From_Api()
     {
         // Arrange
         _azureManagementRepository
             .GetObjectAsync<WorkflowRunDetails>(Arg.Any<Uri>())
             .Returns(Task.FromResult(_workflowRunDetails));
 
+        // Act
         var trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", "run123").ConfigureAwait(false);
 
-        // Act
-        trigger.Correlation = new Correlation { ClientTrackingId = "new-client-id", ActionTrackingId = "new-action-id" };
-        trigger.EndTime = DateTime.UtcNow;
-        trigger.Name = "NewTriggerName";
-        trigger.OriginHistoryName = "new-origin";
-        trigger.StartTime = DateTime.UtcNow;
-        trigger.Status = "Failed";
-
-        // Assert
+        // Assert - values come from Workflow-run-content.json trigger section
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(trigger.Correlation, Is.Not.Null);
-            Assert.That(trigger.Correlation!.ClientTrackingId, Is.EqualTo("new-client-id"));
-            Assert.That(trigger.Correlation.ActionTrackingId, Is.EqualTo("new-action-id"));
-            Assert.That(trigger.EndTime, Is.Not.Null);
-            Assert.That(trigger.Name, Is.EqualTo("NewTriggerName"));
-            Assert.That(trigger.OriginHistoryName, Is.EqualTo("new-origin"));
+            Assert.That(trigger.Name, Is.EqualTo("Recurrence"));
+            Assert.That(trigger.OriginHistoryName, Is.EqualTo("123456"));
+            Assert.That(trigger.Status, Is.EqualTo("Succeeded"));
             Assert.That(trigger.StartTime, Is.Not.Null);
-            Assert.That(trigger.Status, Is.EqualTo("Failed"));
+            Assert.That(trigger.EndTime, Is.Not.Null);
+            Assert.That(trigger.Correlation, Is.Not.Null);
         }
     }
 
     [Test]
-    public async Task Properties_Should_Handle_Null_Values()
+    public async Task Properties_Should_Be_Null_When_Api_Returns_Empty_Response()
     {
-        // Arrange
+        // Arrange - return null so the trigger has no properties to map
         _azureManagementRepository
             .GetObjectAsync<WorkflowRunDetails>(Arg.Any<Uri>())
-            .Returns(Task.FromResult(_workflowRunDetails));
-
-        var trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", "run123").ConfigureAwait(false);
+            .Returns(Task.FromResult<WorkflowRunDetails?>(null));
 
         // Act
-        trigger.Correlation = null;
-        trigger.EndTime = null;
-        trigger.Name = null;
-        trigger.OriginHistoryName = null;
-        trigger.StartTime = null;
-        trigger.Status = null;
+        var trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, "workflow", "run123").ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())

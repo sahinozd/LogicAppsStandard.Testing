@@ -33,11 +33,12 @@ public abstract class BaseStepDefinition : IDisposable
 
     private bool _disposedValue;
     private object? _transformedBody;
+    private readonly TimeSpan _pollInterval;
+    private readonly IConfiguration _configuration;
 
-    private Management.IWorkflow? _currentWorkflow;
     private List<Management.IWorkflowRun> _currentWorkflowRuns = [];
 
-    protected Management.IWorkflow? CurrentWorkflow => _currentWorkflow;
+    protected Management.IWorkflow? CurrentWorkflow { get; private set; }
 
     protected IList<Management.IWorkflowRun> CurrentWorkflowRuns => _currentWorkflowRuns;
 
@@ -53,17 +54,30 @@ public abstract class BaseStepDefinition : IDisposable
 
     protected BaseStepDefinition()
     {
-        var configuration = AppSettings.Configuration;
-        var loadRunsSince = DateTime.UtcNow.AddMinutes(-10);
+        _configuration = AppSettings.Configuration;
 
-        InitializeLogicAppResources(configuration);
-        LogicApp = Management.LogicApp.CreateAsync(configuration, _logicAppAzureManagementRepository!, _actionFactory!, _actionHelper!, loadRunsSince).GetAwaiter().GetResult();
+        var pollIntervalSeconds = int.TryParse(_configuration["PollIntervalSeconds"], out var parsedInterval) ? parsedInterval : 3;
+        _pollInterval = TimeSpan.FromSeconds(pollIntervalSeconds);
 
-        InitializeStorageAccountResources(configuration);
+        InitializeLogicAppResources(_configuration);
+
+        InitializeStorageAccountResources(_configuration);
         BlobStorageSender = new BlobStorageSender(_storageAccountAzureManagementRepository!);
 
-        InitializeServiceBusResources(configuration);
+        InitializeServiceBusResources(_configuration);
         ServiceBusMessageSender = new ServiceBusMessageSender(_serviceBusAzureManagementRepository!);
+    }
+
+    /// <summary>
+    /// Initializes the Logic App instance before each scenario. Runs asynchronously to avoid
+    /// blocking the constructor on a network call.
+    /// </summary>
+    [BeforeScenario(Order = 0)]
+    public async Task InitializeLogicAppAsync()
+    {
+        var loadRunsSinceMinutes = int.Parse(_configuration["LoadRunsSinceMinutes"]!, CultureInfo.InvariantCulture);
+        var loadRunsSince = DateTime.UtcNow.AddMinutes(loadRunsSinceMinutes);
+        LogicApp = await Management.LogicApp.CreateAsync(_configuration, _logicAppAzureManagementRepository!, _actionFactory!, _actionHelper!, loadRunsSince).ConfigureAwait(false);
     }
 
     #region Gherkin Steps - When (Triggers)
@@ -74,11 +88,11 @@ public abstract class BaseStepDefinition : IDisposable
         CurrentWorkflowName = workflowName;
 
         var logicAppWorkflows = await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false);
-        _currentWorkflow = logicAppWorkflows.FirstOrDefault(workflow => workflow.Name == workflowName);
-        var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
+        CurrentWorkflow = logicAppWorkflows.FirstOrDefault(workflow => workflow.Name == workflowName);
+        var trigger = await CurrentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
         await trigger.RunAsync(null).ConfigureAwait(false);
 
-        var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
+        var currentRun = await GetReadyWorkflowRun(CurrentWorkflow).ConfigureAwait(false);
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
     }
@@ -90,18 +104,17 @@ public abstract class BaseStepDefinition : IDisposable
 
         var filePath = $"TestData\\{filename}";
 
-        if (File.Exists(filePath))
-        {
-            var fileContent = File.ReadAllTextAsync(filePath).ConfigureAwait(false).GetAwaiter().GetResult();
-            using var content = new StringContent(fileContent);
-            _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
-            var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
-            await trigger.RunAsync(content).ConfigureAwait(false);
+        Assert.That(File.Exists(filePath), Is.True, $"Test data file not found: {filePath}");
 
-            var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
-            _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
-            CurrentCorrelationId = currentRun?.CorrelationId;
-        }
+        var fileContent = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+        using var content = new StringContent(fileContent);
+        CurrentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
+        var trigger = await CurrentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
+        await trigger.RunAsync(content).ConfigureAwait(false);
+
+        var currentRun = await GetReadyWorkflowRun(CurrentWorkflow).ConfigureAwait(false);
+        _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
+        CurrentCorrelationId = currentRun?.CorrelationId;
     }
 
     [When("Workflow \"(.*)\" is triggered with json file \"(.*)\"")]
@@ -115,11 +128,10 @@ public abstract class BaseStepDefinition : IDisposable
             { "Content-Type", "application/json" }
         };
 
-        if (File.Exists(filePath))
-        {
-            var fileContent = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
-            await WhenWorkFlowIsTriggeredWithContent(workflowName, fileContent, headers).ConfigureAwait(false);
-        }
+        Assert.That(File.Exists(filePath), Is.True, $"Test data file not found: {filePath}");
+
+        var fileContent = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+        await WhenWorkFlowIsTriggeredWithContent(workflowName, fileContent, headers).ConfigureAwait(false);
     }
 
     public async Task WhenWorkFlowIsTriggeredWithContent(string workflowName, string fileContent, Dictionary<string, string>? headers)
@@ -139,11 +151,11 @@ public abstract class BaseStepDefinition : IDisposable
             }
         }
 
-        _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
-        var trigger = await _currentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
+        CurrentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(workflow => workflow.Name == workflowName);
+        var trigger = await CurrentWorkflow!.GetTriggerAsync().ConfigureAwait(false);
         await trigger.RunAsync(content).ConfigureAwait(false);
 
-        var currentRun = await GetReadyWorkflowRun(_currentWorkflow).ConfigureAwait(false);
+        var currentRun = await GetReadyWorkflowRun(CurrentWorkflow).ConfigureAwait(false);
         _currentWorkflowRuns = currentRun != null ? [currentRun] : [];
         CurrentCorrelationId = currentRun?.CorrelationId;
     }
@@ -203,9 +215,9 @@ public abstract class BaseStepDefinition : IDisposable
     {
         // This step specifies a different workflow, so we need to fetch it
         CurrentWorkflowName = workflowName;
-        _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(w => w.Name == workflowName);
+        CurrentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(w => w.Name == workflowName);
 
-        var workflowRun = await GetReadyWorkflowRun(_currentWorkflow!).ConfigureAwait(false);
+        var workflowRun = await GetReadyWorkflowRun(CurrentWorkflow!).ConfigureAwait(false);
         _currentWorkflowRuns = [workflowRun!];
         
         var expectedEvents = table.CreateSet<WorkflowEvent>().ToList();
@@ -378,9 +390,9 @@ public abstract class BaseStepDefinition : IDisposable
     public async Task ThenForAllCorrelatedInstances(string workflowName, Table table)
     {
         CurrentWorkflowName = workflowName;
-        _currentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(w => w.Name == workflowName);
+        CurrentWorkflow = (await LogicApp!.GetWorkflowsAsync().ConfigureAwait(false)).FirstOrDefault(w => w.Name == workflowName);
 
-        _currentWorkflowRuns = [.. (await GetCorrelatedWorkflowRuns(_currentWorkflow!).ConfigureAwait(false))];
+        _currentWorkflowRuns = [.. (await GetCorrelatedWorkflowRuns(CurrentWorkflow!).ConfigureAwait(false))];
 
         var expectedEvents = table.CreateSet<WorkflowEvent>().ToList();
 
@@ -426,14 +438,15 @@ public abstract class BaseStepDefinition : IDisposable
         {
             cancellationTokenSource.Token.ThrowIfCancellationRequested();
 
-            await Task.Delay(3000, cancellationTokenSource.Token).ConfigureAwait(false);
+            await Task.Delay(_pollInterval, cancellationTokenSource.Token).ConfigureAwait(false);
             await workflow.ReloadAsync(cancellationTokenSource.Token).ConfigureAwait(false);
 
-            var workflowRun = CurrentCorrelationId != null ?
-                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId) :
-                (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false)).MaxBy(run => run.StartTime);
+            var runs = await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+            var workflowRun = CurrentCorrelationId != null
+                ? runs.FirstOrDefault(run => run.CorrelationId == CurrentCorrelationId)
+                : runs.MaxBy(run => run.StartTime);
 
-            if (workflowRun != null && workflowRun.Status != WorkflowRunStatus.Running)
+            if (workflowRun != null && workflowRun.Status != WorkflowRunStatus.Running && workflowRun.Status != WorkflowRunStatus.Waiting)
             {
                 return workflowRun;
             }
@@ -461,7 +474,7 @@ public abstract class BaseStepDefinition : IDisposable
         {
             cancellationTokenSource.Token.ThrowIfCancellationRequested();
 
-            await Task.Delay(3000, cancellationTokenSource.Token).ConfigureAwait(false);
+            await Task.Delay(_pollInterval, cancellationTokenSource.Token).ConfigureAwait(false);
             await workflow.ReloadAsync(cancellationTokenSource.Token).ConfigureAwait(false);
 
             var workflowRuns = (await workflow.GetWorkflowRunsAsync(cancellationTokenSource.Token).ConfigureAwait(false))
@@ -646,7 +659,10 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
     protected virtual void Dispose(bool disposing)
     {
-        if (_disposedValue) return;
+        if (_disposedValue)
+        {
+            return;
+        }
 
         if (disposing)
         {

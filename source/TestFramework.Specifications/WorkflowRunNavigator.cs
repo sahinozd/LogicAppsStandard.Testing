@@ -32,7 +32,7 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     /// <param name="allActions">A list of actions from which to extract the names of all nested child actions. Cannot be null.</param>
     /// <returns>A set of strings containing the names of all nested actions found within the specified actions.
     /// The set is empty if no nested actions are present.</returns>
-    private static HashSet<string> GetAllNestedActionNames(List<BaseAction> allActions)
+    private static HashSet<string> GetAllNestedActionNames(IReadOnlyList<BaseAction> allActions)
     {
         var nestedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -87,7 +87,7 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     /// <param name="actionName">The name of the action to search for. This value is case-sensitive and cannot be null.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a list of actions matching the
     /// specified name, or null if no matching actions are found.</returns>
-    public async Task<List<BaseAction>?> FindActionAsync(string actionName)
+    public async Task<IReadOnlyList<BaseAction>?> FindActionAsync(string actionName)
     {
         return await _workflowRun.FindActionByNameAsync(actionName).ConfigureAwait(false);
     }
@@ -101,7 +101,7 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     public async Task<IList<BaseAction>> GetChildActionsAsync(string parentActionName)
     {
         var parentActions = await FindActionAsync(parentActionName).ConfigureAwait(false);
-        var parentAction = parentActions?.FirstOrDefault();
+        var parentAction = parentActions is { Count: > 0 } ? parentActions[0] : null;
 
         if (parentAction == null)
         {
@@ -127,10 +127,10 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     /// actions are to be retrieved.</param>
     /// <param name="iterationIndex">The zero-based index of the iteration for which to retrieve actions.</param>
     /// <returns>A list of actions executed in the specified iteration of the loop, or null if the loop or iteration is not found.</returns>
-    public async Task<List<BaseAction>?> GetActionsInForEachIterationAsync(string loopActionName, int iterationIndex)
+    public async Task<IReadOnlyList<BaseAction>?> GetActionsInForEachIterationAsync(string loopActionName, int iterationIndex)
     {
         var loopActions = await FindActionAsync(loopActionName).ConfigureAwait(false);
-        var foreachAction = loopActions?.FirstOrDefault() as ForEachAction;
+        var foreachAction = (loopActions is { Count: > 0 } ? loopActions[0] : null) as ForEachAction;
 
         var repetition = foreachAction?.Repetitions.FirstOrDefault(r => r.RepetitionIndexes?.Any(ri => ri.ItemIndex == iterationIndex) == true);
 
@@ -145,10 +145,10 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     /// <param name="iterationIndex">The zero-based index of the iteration for which to retrieve actions.</param>
     /// <returns>A list of actions executed during the specified iteration of the loop, or null if the loop action or the
     /// iteration is not found.</returns>
-    public async Task<List<BaseAction>?> GetActionsInUntilIterationAsync(string loopActionName, int iterationIndex)
+    public async Task<IReadOnlyList<BaseAction>?> GetActionsInUntilIterationAsync(string loopActionName, int iterationIndex)
     {
         var loopActions = await FindActionAsync(loopActionName).ConfigureAwait(false);
-        var untilAction = loopActions?.FirstOrDefault() as UntilAction;
+        var untilAction = (loopActions is { Count: > 0 } ? loopActions[0] : null) as UntilAction;
 
         var repetition = untilAction?.Repetitions.FirstOrDefault(r => r.RepetitionIndexes?.Any(ri => ri.ItemIndex == iterationIndex) == true);
 
@@ -169,7 +169,7 @@ public class WorkflowRunNavigator(IWorkflowRun workflowRun)
     public async Task<IList<BaseAction>> GetActionsInScopeAsync(string scopeName, string? branchName = null)
     {
         var parentActions = await FindActionAsync(scopeName).ConfigureAwait(false);
-        var parentAction = parentActions?.FirstOrDefault();
+        var parentAction = parentActions is { Count: > 0 } ? parentActions[0] : null;
 
         if (parentAction == null)
         {

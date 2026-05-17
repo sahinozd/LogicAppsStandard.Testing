@@ -11,13 +11,13 @@ public interface IWorkflowTrigger
 
     DateTime? CreatedTime { get; }
 
-    string? DesignerName { get; set; }
+    string? DesignerName { get; }
 
-    string? Id { get; set; }
+    string? Id { get; }
 
     string? LastExecutionTime { get; }
 
-    string? Name { get; set; }
+    string? Name { get; }
 
     string? NextExecutionTime { get; }
 
@@ -29,7 +29,7 @@ public interface IWorkflowTrigger
 
     Uri? TriggerUrl { get; }
 
-    string? Type { get; set; }
+    string? Type { get; }
 
     /// <summary>
     /// Execute the trigger endpoint for the workflow.

@@ -16,7 +16,7 @@ public static partial class ActionPathNavigator
     /// <param name="allActions">All workflow actions at the top level.</param>
     /// <param name="path">The navigation path, e.g., "For each number[1].For each letter[2]", "Try.Until[3].Condition.actions", or "Switch.Default"</param>
     /// <returns>List of actions at the specified path, or empty list if path is invalid.</returns>
-    public static IList<BaseAction> NavigateToPath(IList<BaseAction> allActions, string path)
+    public static IReadOnlyList<BaseAction> NavigateToPath(IReadOnlyList<BaseAction> allActions, string path)
     {
         ArgumentNullException.ThrowIfNull(allActions);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -54,7 +54,7 @@ public static partial class ActionPathNavigator
     /// <param name="currentActions">The list of actions currently in scope, used to determine if a switch action is present.</param>
     /// <param name="segmentName">The name of the segment to evaluate as a potential switch case label. Comparison is case-insensitive.</param>
     /// <returns>true if the segment name could be interpreted as a switch case label in the current context; otherwise, false.</returns>
-    private static bool IsPotentiallySwitchCaseSegment(IList<BaseAction> currentActions, string segmentName)
+    private static bool IsPotentiallySwitchCaseSegment(IReadOnlyList<BaseAction> currentActions, string segmentName)
     { 
         return !segmentName.Equals("actions", StringComparison.OrdinalIgnoreCase) &&
                !segmentName.Equals("else", StringComparison.OrdinalIgnoreCase) &&
@@ -107,7 +107,7 @@ public static partial class ActionPathNavigator
     /// When true and the current segment resolves to a ConditionAction, the method returns the condition itself wrapped in a list instead of its children.</param>
     /// <returns>A list of child actions corresponding to the specified segment. Returns an empty list if the segment does not
     /// match any action.</returns>
-    private static IList<BaseAction> NavigateSegment(IList<BaseAction> currentActions, PathSegment segment, bool nextSegmentIsBranch = false)
+    private static IReadOnlyList<BaseAction> NavigateSegment(IReadOnlyList<BaseAction> currentActions, PathSegment segment, bool nextSegmentIsBranch = false)
     {
         // Special handling for condition branches
         if (segment.ActionName.Equals("actions", StringComparison.OrdinalIgnoreCase) ||
@@ -159,7 +159,7 @@ public static partial class ActionPathNavigator
     /// <param name="index">The 1-based index of the iteration for which to retrieve actions. Must be greater than zero.</param>
     /// <returns>A list of actions corresponding to the specified iteration.
     /// Returns an empty list if the action type is not supported or if the index is out of range.</returns>
-    private static IList<BaseAction> NavigateToIteration(BaseAction action, int index)
+    private static IReadOnlyList<BaseAction> NavigateToIteration(BaseAction action, int index)
     {
         // Convert 1-based to 0-based
         var zeroBasedIndex = index - 1;
@@ -218,7 +218,7 @@ public static partial class ActionPathNavigator
     /// <param name="branchName">The name of the branch to navigate to. Use "actions" to select the default branch;
     /// any other value selects the else branch. Comparison is case-insensitive.</param>
     /// <returns>A list of actions belonging to the specified branch of the condition action. Returns an empty list if no condition action is found in the current context.</returns>
-    private static IList<BaseAction> NavigateToBranch(IList<BaseAction> currentActions, string branchName)
+    private static IReadOnlyList<BaseAction> NavigateToBranch(IReadOnlyList<BaseAction> currentActions, string branchName)
     {
         // The previous segment should have been a Condition action
         // Since we already navigated to it, currentActions contains the condition's children
@@ -258,7 +258,7 @@ public static partial class ActionPathNavigator
     /// <remarks>The returned collection may include actions from different branches or repetitions, depending on the type of the provided action.</remarks>
     /// <param name="action">The action from which to retrieve child actions. This parameter must not be null.</param>
     /// <returns>A list of child actions contained within the specified action. Returns an empty list if the action does not contain any child actions.</returns>
-    private static IList<BaseAction> GetChildActions(BaseAction action)
+    private static IReadOnlyList<BaseAction> GetChildActions(BaseAction action)
     {
         return action switch
         {

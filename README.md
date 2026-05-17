@@ -18,7 +18,6 @@ A .NET testing framework for **Azure Logic Apps Standard**
 8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
 9. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
 10. [Sample Workflow Definitions](#sample-workflow-definitions)
-11. [Unit Test Coverage](#unit-test-coverage)
 
 ---
 
@@ -50,6 +49,9 @@ The `LogicApps.Management` library is a full object-oriented .NET model of Azure
 Each action type is modelled with its own class: `ScopeAction`, `ConditionAction`, `SwitchAction`, `ForEachAction`, `UntilAction`, and the base `Action` for standard connectors. Repetitions within loops are themselves modelled as typed objects (`ForEachActionRepetition`, `UntilActionRepetition`), each capable of loading their own child actions on demand.
 
 This means that from C#, reading a run's data looks like navigating an object graph  -  not parsing raw JSON.
+
+> **Always reflects your current deployment.**
+> The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
 
 ---
 
@@ -272,7 +274,9 @@ The integration test project reads configuration from an `appsettings.json` file
   "StorageAccount": "#{testFramework_sa_name}#",
   "CorrelationIdActionName": "#{testFramework_correlation_id_action_name}",
   "VariableActionName": "Initialize_variables",
-  "CorrelationIdVariableName": "correlationId"
+  "CorrelationIdVariableName": "correlationId",
+  "LoadRunsSinceMinutes": "-10",
+  "PollIntervalSeconds": "3"
 }
 ```
 
@@ -290,6 +294,62 @@ The integration test project reads configuration from an `appsettings.json` file
 | `CorrelationIdActionName` | The name of the Logic Apps action that sets the correlation ID variable in the receive workflow. Used by the framework to capture the correlation ID from the run for use in correlated multi-workflow assertions. |
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
+| `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
+| `PollIntervalSeconds` | The number of seconds the framework waits between polling attempts while waiting for a workflow run to finish. Defaults to `3` if not specified. Increase this value to reduce Azure Management API call volume in slower environments. |
+
+### Local overrides with appsettings.local.json
+
+During local development you often need to supply real credentials without committing them to source control. The test framework supports an optional `appsettings.local.json` file that is layered on top of `appsettings.json` at runtime.
+
+- **Values in `appsettings.local.json` override the corresponding keys in `appsettings.json`.**
+- The file is optional — if it does not exist the framework runs with only `appsettings.json`.
+- **Add `appsettings.local.json` to your `.gitignore`** to prevent accidental commits of real credentials.
+
+A typical local file looks like:
+
+```json
+{
+  "ClientId": "your-real-client-id",
+  "ClientSecret": "your-real-client-secret",
+  "TenantId": "your-real-tenant-id",
+  "SubscriptionId": "your-real-subscription-id",
+  "ResourceGroup": "your-resource-group",
+  "LogicAppName": "your-logic-app-name",
+  "LogicAppApiVersion": "2024-04-01",
+  "ServiceBusNamespace": "your-servicebus-namespace",
+  "StorageAccount": "your-storage-account",
+  "CorrelationIdActionName": "Initialize_variables",
+  "VariableActionName": "Initialize_variables",
+  "CorrelationIdVariableName": "correlationId",
+  "LoadRunsSinceMinutes": "-10",
+  "PollIntervalSeconds": "3"
+}
+```
+
+---
+
+## Known Limitations
+
+### Stateless Workflows Are Not Supported
+
+This framework relies on the Azure Management REST API's **run history** endpoint to poll for completed workflow runs and navigate their action trees. **Stateless workflows do not persist run history by default**, so the Management API returns no run records for them. As a result, the polling loop will time out and no action assertions can be made.
+
+**Workaround:** Even though I have not tested it myself, you could use the following workaround. Enable run history for stateless workflows by setting `OperationOptions` to `WithStatelessRunHistory` in your Logic Apps Standard host configuration:
+
+```json
+{
+  "extensions": {
+    "workflow": {
+      "settings": {
+        "Runtime.FlowRetentionThreshold": "7.00:00:00",
+        "Runtime.Backend.FlowRunRetentionPeriod": "7.00:00:00"
+      }
+    }
+  }
+}
+```
+
+Or toggle it per-workflow in the designer under **Settings → General → Enable run history**. Once run history is enabled for a stateless workflow it behaves identically to a stateful workflow from this framework's perspective.
 
 ---
 
@@ -1236,50 +1296,3 @@ Recurrence (trigger)
 ```
 
 This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in `TESTING_GUIDE.md`.
-
----
-
-## Unit Test Coverage
-
-The framework is fully covered by unit tests across three test projects.
-
-**`LogicApps.Management.Tests`** covers the core object model:
-
-- `LogicApp`  -  factory creation, workflow enumeration, and initialisation
-- `Workflow`  -  run loading, trigger retrieval, and reload behaviour
-- `WorkflowRun`  -  action loading, trigger loading, correlation ID resolution, depth-first search via `FindActionByNameAsync`, and `Reload`
-- `WorkflowRunTrigger`  -  property mapping from API payloads and input/output loading
-- `WorkflowTrigger`  -  trigger URL construction, recurrence vs HTTP trigger routing, and `Run` execution
-- `WorkflowTriggerExecutionResponse`  -  response status and content handling
-- `BaseAction`  -  property mapping, input/output link resolution, and repetition count handling
-- `Action`  -  standard connector action construction
-- `ScopeAction`  -  child action collection population
-- `ConditionAction`  -  true (`DefaultActions`) and false (`ElseActions`) branch population
-- `SwitchAction`  -  case collection population
-- `SwitchCase`  -  case name and actions population
-- `ForEachAction`  -  repetition retrieval via `GetAllActionRepetitions`
-- `ForEachActionRepetition`  -  property mapping and repetition index handling
-- `UntilAction`  -  repetition retrieval via `GetAllActionRepetitions`
-- `UntilActionRepetition`  -  property mapping and iteration count handling
-- `ActionFactory`  -  action creation from workflow definition JSON for all supported action types
-- `ActionHelper`  -  linked input/output content resolution
-
-**`LogicApps.Management.Repository.Tests`** covers the infrastructure layer:
-
-- `AzureHttpClient`  -  HTTP client construction and authenticated request dispatch
-- `AzureManagementRepository`  -  GET, POST, and paged response handling
-- `EntraTokenClient`  -  token acquisition and caching
-- `ServiceBusMessageBuilder`  -  claim-check message construction, correlation ID embedding, and custom property attachment
-- `ServiceBusMessageSender`  -  message dispatch to topics and queues
-- `BlobRequestBuilder`  -  blob upload request construction
-- `BlobStorageSender`  -  blob upload dispatch
-
-**`LogicApps.TestFramework.Specifications.Tests`** covers the Gherkin layer:
-
-- `WorkflowRunValidation`  -  all validation methods including loop iteration count, actions in all iterations, actions in a specific iteration, nested loop validation, scope and branch child action validation, and single action status validation
-- `WorkflowRunNavigator`  -  depth-first action search, scope navigation, condition branch retrieval (true and false), switch case retrieval, ForEach and Until iteration access, and nested loop discovery
-- `ActionPathNavigator`  -  the full path syntax parser including simple names, iteration indices, condition `.actions` and `.else` branches, switch cases, nested paths, case-insensitive matching, and invalid path handling
-- `ClassHelper`  -  nested property setting with dot-notation paths, automatic instance creation for null intermediate objects, type conversion, nullable type handling, and list indexer support
-- `StringHelper` and `FileNameResolver`  -  string null normalisation and filename placeholder resolution
-
-All three test projects run entirely in memory against in-process mock data and do not require any Azure connectivity. They can be executed in a standard `dotnet test` step with no additional setup.

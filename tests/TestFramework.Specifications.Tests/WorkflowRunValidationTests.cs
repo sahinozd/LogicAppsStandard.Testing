@@ -824,7 +824,7 @@ internal sealed class WorkflowRunValidationTests
         }
     }
 
-    private async Task<Management.WorkflowRun> CreateWorkflowRunAsync()
+    private async Task<Management.IWorkflowRun> CreateWorkflowRunAsync()
     {
         return await Management.WorkflowRun.CreateAsync(
             _configuration,
@@ -837,7 +837,7 @@ internal sealed class WorkflowRunValidationTests
         ).ConfigureAwait(false);
     }
 
-    private async Task<Management.WorkflowRun> CreateWorkflowRunWithForEachAsync(int iterationCount, string iterationStatus)
+    private async Task<Management.IWorkflowRun> CreateWorkflowRunWithForEachAsync(int iterationCount, string iterationStatus)
     {
         var forEachDefinition = JObject.Parse("""
             {

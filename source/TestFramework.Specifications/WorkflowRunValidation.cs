@@ -3,13 +3,22 @@ using LogicApps.TestFramework.Specifications.Models;
 
 namespace LogicApps.TestFramework.Specifications;
 
-public class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
+/// <summary>
+/// Validates a workflow run's actions and trigger against expected outcomes defined in a test scenario.
+/// Supports simple action checks, loop iteration validation, and nested scope/condition/switch inspection.
+/// </summary>
+public sealed class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
 {
     private readonly Management.IWorkflowRun _workflowRun = workflowRun ?? throw new ArgumentNullException(nameof(workflowRun));
     private readonly WorkflowRunNavigator _navigator = new(workflowRun);
 
     #region Legacy/Existing Validation Methods (Backward Compatibility)
 
+    /// <summary>
+    /// Validates the workflow run's actions and trigger against an optional list of expected events.
+    /// </summary>
+    /// <param name="expectedEvents">Optional list of expected workflow events. When null, validation passes if at least one action or trigger exists.</param>
+    /// <returns>A tuple where the first value is <see langword="true"/> if validation succeeded; otherwise <see langword="false"/>, with an error message in the second value.</returns>
     public async Task<(bool, string?)> ValidateRunActionsAsync(IList<WorkflowEvent>? expectedEvents = null)
     {
         var trigger = await _workflowRun.GetWorkflowRunTriggerAsync().ConfigureAwait(false);
@@ -36,7 +45,7 @@ public class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
             else
             {
                 var foundActions = await _navigator.FindActionAsync(expectedEvent.StepName).ConfigureAwait(false);
-                var action = foundActions?.FirstOrDefault();
+                var action = foundActions is { Count: > 0 } ? foundActions[0] : null;
 
                 result = action != null
                     ? CheckActionStatus(expectedEvent, action.Status!, true)
@@ -52,6 +61,13 @@ public class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
         return (true, null);
     }
 
+    /// <summary>
+    /// Validates actions within a specific iteration of a ForEach loop action against a list of expected events.
+    /// </summary>
+    /// <param name="foreachLoopName">The designer name of the ForEach loop action.</param>
+    /// <param name="index">The one-based iteration index to validate.</param>
+    /// <param name="expectedEvents">List of expected workflow events for the specified iteration. When null, validation passes if the loop action exists.</param>
+    /// <returns>A tuple where the first value is <see langword="true"/> if validation succeeded; otherwise <see langword="false"/>, with an error message in the second value.</returns>
     public async Task<(bool, string?)> ValidateRunLoopActionsExecutionsAsync(string foreachLoopName, int index, IList<WorkflowEvent>? expectedEvents)
     {
         var actions = await _workflowRun.GetWorkflowRunActionsAsync().ConfigureAwait(false);
@@ -104,7 +120,7 @@ public class WorkflowRunValidation(Management.IWorkflowRun workflowRun)
     public async Task<(bool, string?)> ValidateSingleActionAsync(string actionName, string expectedStatus)
     {
         var actions = await _navigator.FindActionAsync(actionName).ConfigureAwait(false);
-        var action = actions?.FirstOrDefault();
+        var action = actions is { Count: > 0 } ? actions[0] : null;
 
         if (action == null)
         {

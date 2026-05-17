@@ -10,25 +10,25 @@ namespace LogicApps.Management;
 /// </summary>
 public interface IWorkflowRunTrigger
 {
-    Correlation? Correlation { get; set; }
+    Correlation? Correlation { get; }
 
     string? DesignerName { get; }
 
-    DateTime? EndTime { get; set; }
+    DateTime? EndTime { get; }
 
     JToken? Input { get; }
 
     WorkflowRunDetailsActionContent? InputsLink { get; }
 
-    string? Name { get; set; }
+    string? Name { get; }
 
-    string? OriginHistoryName { get; set; }
+    string? OriginHistoryName { get; }
 
     JToken? Output { get; }
 
     WorkflowRunDetailsActionContent? OutputsLink { get; }
 
-    DateTime? StartTime { get; set; }
+    DateTime? StartTime { get; }
 
-    string? Status { get; set; }
+    string? Status { get; }
 }
