@@ -14,6 +14,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
 {
     private readonly IAzureHttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     private readonly Uri _baseAddress = baseAddress ?? throw new ArgumentNullException(nameof(baseAddress));
+    private readonly ILogger<AzureManagementRepository>? _logger = logger;
     private bool _disposed;
 
     /// <summary>
@@ -28,8 +29,8 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
         var requestUri = new Uri(_baseAddress, relativeUri);
         
         return content == null
-            ? await WithRetryAsync(() => _httpClient.GetAsync<T>(requestUri), requestUri.ToString(), logger).ConfigureAwait(false)
-            : await WithRetryAsync(() => _httpClient.PostAsync<T>(requestUri, content), requestUri.ToString(), logger).ConfigureAwait(false);
+            ? await WithRetryAsync(() => _httpClient.GetAsync<T>(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false)
+            : await WithRetryAsync(() => _httpClient.PostAsync<T>(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -41,7 +42,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<T?> GetObjectPublicAsync<T>(Uri requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetPublicAsync<T>(requestUri), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetPublicAsync<T>(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -52,7 +53,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> GetAsync(Uri? requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetAsync(requestUri), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetAsync(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -63,7 +64,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> GetPublicAsync(Uri requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetPublicAsync(requestUri), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetPublicAsync(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -75,7 +76,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PostAsync(Uri? requestUri, HttpContent? content)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -88,7 +89,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PostPublicAsync(Uri requestUri, HttpContent? content, Dictionary<string, string>? headers = null)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PostPublicAsync(requestUri, content, headers), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostPublicAsync(requestUri, content, headers), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -102,7 +103,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     {
         ArgumentNullException.ThrowIfNull(requestUri);
         ArgumentNullException.ThrowIfNull(headers);
-        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content, headers), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content, headers), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -114,7 +115,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PutAsync(Uri? requestUri, HttpContent? content)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PutAsync(requestUri, content), requestUri.ToString(), logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PutAsync(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
     }
 
     /// <summary>

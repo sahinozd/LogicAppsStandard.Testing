@@ -50,6 +50,9 @@ Each action type is modelled with its own class: `ScopeAction`, `ConditionAction
 
 This means that from C#, reading a run's data looks like navigating an object graph  -  not parsing raw JSON.
 
+> **Always reflects your current deployment.**
+> The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
+
 ---
 
 ### 2. The Specifications Layer  -  Gherkin-Based Acceptance Testing

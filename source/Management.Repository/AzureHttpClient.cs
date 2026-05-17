@@ -208,8 +208,7 @@ public sealed class AzureHttpClient : IAzureHttpClient
 
     /// <summary>
     /// Ensures a valid access token is available.
-    /// Acquires a new token when none exists, when the current token has expired
-    /// (or is within the expiry buffer), or when the server returns 401.
+    /// Acquires a new token when none exists, when the current token has expired (or is within the expiry buffer), or when the server returns 401.
     /// Thread-safe: at most one token request is in-flight at a time.
     /// </summary>
     private async Task AuthorizeAsync(CancellationToken cancellationToken = default)

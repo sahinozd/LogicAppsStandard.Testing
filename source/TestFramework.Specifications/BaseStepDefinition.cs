@@ -288,7 +288,7 @@ public abstract class BaseStepDefinition : IDisposable
                 Console.WriteLine($"  - Name: '{action.Name}', DesignerName: '{action.DesignerName}', Type: {action.GetType().Name}");
             }
 
-            var actionsAtPath = ActionPathNavigator.NavigateToPath([.. allActions], path);
+            var actionsAtPath = ActionPathNavigator.NavigateToPath(allActions, path);
 
             Console.WriteLine($"The actual actions found at path '{path}': {actionsAtPath.Count}");
             foreach (var action in actionsAtPath)
