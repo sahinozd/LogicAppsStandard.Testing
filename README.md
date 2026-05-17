@@ -50,9 +50,6 @@ Each action type is modelled with its own class: `ScopeAction`, `ConditionAction
 
 This means that from C#, reading a run's data looks like navigating an object graph  -  not parsing raw JSON.
 
-> **Always reflects your current deployment.**
-> The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
-
 ---
 
 ### 2. The Specifications Layer  -  Gherkin-Based Acceptance Testing
@@ -274,8 +271,10 @@ The integration test project reads configuration from an `appsettings.json` file
   "StorageAccount": "#{testFramework_sa_name}#",
   "VariableActionName": "#{testFramework_variable_action_name}#",
   "CorrelationIdVariableName": "#{testFramework_correlation_id_variable_name}#",
-  "LoadRunsSinceMinutes": "-10",
-  "PollIntervalSeconds": "3"
+  "LoadRunsSinceMinutes": "#{testFramework_load_runs_since_minutes}#",
+  "PollIntervalSeconds": "#{testFramework_poll_interval_seconds}#",
+  "BlobStorageApiVersion": "#{testFramework_blob_storage_api_version}#",
+  "MaxRetries": "#{testFramework_max_retries}#"
 }
 ```
 
@@ -290,10 +289,12 @@ The integration test project reads configuration from an `appsettings.json` file
 | `LogicAppApiVersion` | The Azure Management REST API version to use for Logic Apps calls (e.g. `2024-04-01`). |
 | `ServiceBusNamespace` | The Service Bus namespace hostname prefix (e.g. `my-servicebus`). The framework builds the full hostname as `{namespace}.servicebus.windows.net`. |
 | `StorageAccount` | The Storage Account name (e.g. `mystorageaccount`). The framework builds the full endpoint as `{name}.blob.core.windows.net`. |
+| `BlobStorageApiVersion` | The Azure Blob Storage REST API version to use for blob operations (e.g. `2023-11-03`). Defaults to `2023-11-03` if not specified. |
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
 | `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
 | `PollIntervalSeconds` | The number of seconds the framework waits between polling attempts while waiting for a workflow run to finish. Defaults to `3` if not specified. Increase this value to reduce Azure Management API call volume in slower environments. |
+| `MaxRetries` | The maximum number of retry attempts the framework makes when the Azure Management REST API returns a throttling response (HTTP 429). Increase this value in environments with high API call volume. |
 
 ### Local overrides with appsettings.local.json
 
@@ -319,13 +320,21 @@ A typical local file looks like:
   "VariableActionName": "Initialize_variables",
   "CorrelationIdVariableName": "correlationId",
   "LoadRunsSinceMinutes": "-10",
-  "PollIntervalSeconds": "3"
+  "PollIntervalSeconds": "3",
+  "BlobStorageApiVersion": "2023-11-03",
+  "MaxRetries": "5"
 }
 ```
 
 ---
 
 ## Known Limitations
+
+### Framework Always Reflects Your Current Deployment
+
+The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
+
+---
 
 ### Stateless Workflows Are Not Supported
 
