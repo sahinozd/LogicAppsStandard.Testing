@@ -59,12 +59,14 @@ public abstract class BaseStepDefinition : IDisposable
         var pollIntervalSeconds = int.TryParse(_configuration["PollIntervalSeconds"], out var parsedInterval) ? parsedInterval : 3;
         _pollInterval = TimeSpan.FromSeconds(pollIntervalSeconds);
 
-        InitializeLogicAppResources(_configuration);
+        var maxRetries = int.TryParse(_configuration[StringConstants.MaxRetries], out var parsedRetries) ? parsedRetries : 5;
 
-        InitializeStorageAccountResources(_configuration);
+        InitializeLogicAppResources(_configuration, maxRetries);
+
+        InitializeStorageAccountResources(_configuration, maxRetries);
         BlobStorageSender = new BlobStorageSender(_storageAccountAzureManagementRepository!);
 
-        InitializeServiceBusResources(_configuration);
+        InitializeServiceBusResources(_configuration, maxRetries);
         ServiceBusMessageSender = new ServiceBusMessageSender(_serviceBusAzureManagementRepository!);
     }
 
@@ -282,18 +284,18 @@ public abstract class BaseStepDefinition : IDisposable
         {
             var allActions = await workflowRun.GetWorkflowRunActionsAsync().ConfigureAwait(false);
 
-            Console.WriteLine($"Navigating to path: {path} and looking for these actions:");
+            TestContext.WriteLine($"Navigating to path: {path} and looking for these actions:");
             foreach (var action in allActions)
             {
-                Console.WriteLine($"  - Name: '{action.Name}', DesignerName: '{action.DesignerName}', Type: {action.GetType().Name}");
+                TestContext.WriteLine($"  - Name: '{action.Name}', DesignerName: '{action.DesignerName}', Type: {action.GetType().Name}");
             }
 
             var actionsAtPath = ActionPathNavigator.NavigateToPath(allActions, path);
 
-            Console.WriteLine($"The actual actions found at path '{path}': {actionsAtPath.Count}");
+            TestContext.WriteLine($"The actual actions found at path '{path}': {actionsAtPath.Count}");
             foreach (var action in actionsAtPath)
             {
-                Console.WriteLine($"  - Found: '{action.DesignerName}' ({action.Name}) - Status: {action.Status}");
+                TestContext.WriteLine($"  - Found: '{action.DesignerName}' ({action.Name}) - Status: {action.Status}");
             }
 
             if (actionsAtPath.Count == 0)
@@ -304,7 +306,7 @@ public abstract class BaseStepDefinition : IDisposable
 
             foreach (var expectedEvent in expectedEvents)
             {
-                Console.WriteLine($"Looking for action: '{expectedEvent.StepName}' with status '{expectedEvent.Status}'");
+                TestContext.WriteLine($"Looking for action: '{expectedEvent.StepName}' with status '{expectedEvent.Status}'");
 
                 var action = actionsAtPath.FirstOrDefault(a =>
                     a.DesignerName == expectedEvent.StepName ||
@@ -323,7 +325,7 @@ public abstract class BaseStepDefinition : IDisposable
                     return;
                 }
 
-                Console.WriteLine($"Found '{expectedEvent.StepName}' with correct status '{expectedEvent.Status}'");
+                TestContext.WriteLine($"Found '{expectedEvent.StepName}' with correct status '{expectedEvent.Status}'");
             }
         }
     }
@@ -421,12 +423,12 @@ public abstract class BaseStepDefinition : IDisposable
     /// Asynchronously retrieves the workflow run that is ready for processing, based on the current correlation identifier if available.
     /// </summary>
     /// <remarks>If the current correlation identifier is set, the method returns the workflow run with a matching correlation identifier.
-    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.
-    /// Throws <see cref="TimeoutException"/> if no run is found within the polling timeout.</remarks>
+    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve the workflow run. Cannot be null.</param>
     /// <param name="timeout">Maximum time to wait for the run to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the workflow run that matches the
     /// current correlation identifier if set; otherwise, the most recent workflow run, or null if no runs are available.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when no matching run is found within the specified <paramref name="timeout"/>.</exception>
     protected async Task<Management.IWorkflowRun?> GetReadyWorkflowRun(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
@@ -457,12 +459,12 @@ public abstract class BaseStepDefinition : IDisposable
     /// Asynchronously retrieves all workflow runs for the specified workflow that share the current correlation identifier.
     /// </summary>
     /// <remarks>This method reloads the workflow before retrieving its runs to ensure the latest state is used.
-    /// Only runs with a correlation identifier matching the current context are returned.
-    /// Throws <see cref="TimeoutException"/> if no correlated runs appear within the polling timeout.</remarks>
+    /// Only runs with a correlation identifier matching the current context are returned.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve correlated workflow runs. Cannot be null.</param>
     /// <param name="timeout">Maximum time to wait for correlated runs to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of workflow runs that
     /// have the same correlation identifier as the current context.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when no correlated runs are found within the specified <paramref name="timeout"/>.</exception>
     protected async Task<IEnumerable<Management.IWorkflowRun>> GetCorrelatedWorkflowRuns(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
@@ -546,10 +548,11 @@ public abstract class BaseStepDefinition : IDisposable
     /// Initializes resources required for interacting with Azure Logic Apps using the specified configuration.
     /// </summary>
     /// <param name="configuration">The configuration settings used to initialize Logic App resources. Cannot be null.</param>
-    private void InitializeLogicAppResources(IConfiguration configuration)
+    /// <param name="maxRetries">The max retries for retrieving data.</param>
+    private void InitializeLogicAppResources(IConfiguration configuration, int maxRetries)
     {
         var baseAddress = new Uri("https://management.azure.com");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
+        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress, maxRetries);
 
         _logicAppHttpClient = azureHttpClient;
         _logicAppAzureManagementRepository = repository;
@@ -563,10 +566,11 @@ public abstract class BaseStepDefinition : IDisposable
     /// </summary>
     /// <param name="configuration">The configuration settings used to determine the storage account and initialize related resources. Must contain
     /// a valid 'StorageAccount' entry.</param>
-    private void InitializeStorageAccountResources(IConfiguration configuration)
+    /// <param name="maxRetries">The max retries for retrieving data.</param>
+    private void InitializeStorageAccountResources(IConfiguration configuration, int maxRetries)
     {
         var baseAddress = new Uri($"https://{configuration["StorageAccount"]!}.blob.core.windows.net");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
+        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress, maxRetries);
 
         _storageAccountHttpClient = azureHttpClient;
         _storageAccountAzureManagementRepository = repository;
@@ -577,10 +581,11 @@ public abstract class BaseStepDefinition : IDisposable
     /// </summary>
     /// <param name="configuration">The configuration settings used to determine the Service Bus namespace and other required parameters.
     /// Cannot be null.</param>
-    private void InitializeServiceBusResources(IConfiguration configuration)
+    /// <param name="maxRetries">The max retries for retrieving data.</param>
+    private void InitializeServiceBusResources(IConfiguration configuration, int maxRetries)
     {
         var baseAddress = new Uri($"https://{configuration["ServiceBusNamespace"]!}.servicebus.windows.net");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
+        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress, maxRetries);
 
         _serviceBusHttpClient = azureHttpClient;
         _serviceBusAzureManagementRepository = repository;
@@ -609,9 +614,10 @@ public abstract class BaseStepDefinition : IDisposable
     /// <param name="configuration">The application configuration containing required Azure credentials and settings.
     /// Must provide values for 'TenantId', 'ClientId', and 'ClientSecret'.</param>
     /// <param name="baseAddress">The base URI for Azure management API requests.</param>
+    /// <param name="maxRetries">The max retries for retrieving data.</param>
     /// <returns>A tuple containing the HTTP client factory, token client, Azure HTTP client, and Azure management repository,
     /// all configured for Azure management operations.</returns>
-    private static (AzureHttpClient azureHttpClient, AzureManagementRepository repository) CreateAzureRepository(IConfiguration configuration, Uri baseAddress)
+    private static (AzureHttpClient azureHttpClient, AzureManagementRepository repository) CreateAzureRepository(IConfiguration configuration, Uri baseAddress, int maxRetries)
     {
         var services = new ServiceCollection();
 
@@ -633,7 +639,7 @@ public abstract class BaseStepDefinition : IDisposable
         var tokenClient = new EntraTokenClient(httpClientFactory);
 
         var azureHttpClient = new AzureHttpClient(httpClientFactory, tokenClient, baseAddress, configuration["TenantId"]!, configuration["ClientId"]!, configuration["ClientSecret"]!);
-        var repository = new AzureManagementRepository(azureHttpClient, baseAddress);
+        var repository = new AzureManagementRepository(azureHttpClient, baseAddress, maxRetries: maxRetries);
 
         return (azureHttpClient, repository);
     }

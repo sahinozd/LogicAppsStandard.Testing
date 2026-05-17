@@ -23,4 +23,8 @@ public static class StringConstants
     public const string WorkflowNameHeader = "x-ms-workflow-name";
 
     public const string WorkflowVersionHeader = "x-ms-workflow-version";
+
+    public const string BlobStorageApiVersion = "BlobStorageApiVersion";
+
+    public const string MaxRetries = "MaxRetries";
 }
