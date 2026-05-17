@@ -10,11 +10,18 @@ namespace LogicApps.Management.Repository;
 /// </remarks>
 /// <param name="httpClient">The Azure HTTP client with built-in authorization.</param>
 /// <param name="baseAddress">The base URI for the Azure Management API.</param>
-public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri baseAddress, ILogger<AzureManagementRepository>? logger = null) : IAzureManagementRepository, IDisposable
+/// <param name="logger">Optional logger instance.</param>
+/// <param name="maxRetries">
+/// Maximum number of retry attempts on throttling (HTTP 429) or transient failures.
+/// Defaults to <c>5</c>. Read from the <c>MaxRetries</c> configuration key when constructed
+/// via BaseStepDefinition/>.
+/// </param>
+public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri baseAddress, ILogger<AzureManagementRepository>? logger = null, int maxRetries = 5) : IAzureManagementRepository, IDisposable
 {
     private readonly IAzureHttpClient _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     private readonly Uri _baseAddress = baseAddress ?? throw new ArgumentNullException(nameof(baseAddress));
     private readonly ILogger<AzureManagementRepository>? _logger = logger;
+    private readonly int _maxRetries = maxRetries > 0 ? maxRetries : throw new ArgumentOutOfRangeException(nameof(maxRetries), "maxRetries must be greater than zero.");
     private bool _disposed;
 
     /// <summary>
@@ -29,8 +36,8 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
         var requestUri = new Uri(_baseAddress, relativeUri);
         
         return content == null
-            ? await WithRetryAsync(() => _httpClient.GetAsync<T>(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false)
-            : await WithRetryAsync(() => _httpClient.PostAsync<T>(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
+            ? await WithRetryAsync(() => _httpClient.GetAsync<T>(requestUri), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false)
+            : await WithRetryAsync(() => _httpClient.PostAsync<T>(requestUri, content), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -42,7 +49,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<T?> GetObjectPublicAsync<T>(Uri requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetPublicAsync<T>(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetPublicAsync<T>(requestUri), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -53,7 +60,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> GetAsync(Uri? requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetAsync(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetAsync(requestUri), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -64,11 +71,11 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> GetPublicAsync(Uri requestUri)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.GetPublicAsync(requestUri), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.GetPublicAsync(requestUri), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Sends a POST request to the specified URI with the provided HTTP content as an asynchronous operation.
+    /// Sends a POST request to the specified URI
     /// </summary>
     /// <param name="requestUri">The URI to which the POST request is sent.</param>
     /// <param name="content">The HTTP content to send with the request.</param>
@@ -76,11 +83,11 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PostAsync(Uri? requestUri, HttpContent? content)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Sends a POST request to a public endpoint with optional content and headers.
+    /// Sends a POST request to a public endpoint
     /// </summary>
     /// <param name="requestUri">The URI to which the POST request is sent.</param>
     /// <param name="content">The HTTP request content to send.</param>
@@ -89,7 +96,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PostPublicAsync(Uri requestUri, HttpContent? content, Dictionary<string, string>? headers = null)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PostPublicAsync(requestUri, content, headers), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostPublicAsync(requestUri, content, headers), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -103,7 +110,7 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     {
         ArgumentNullException.ThrowIfNull(requestUri);
         ArgumentNullException.ThrowIfNull(headers);
-        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content, headers), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PostAsync(requestUri, content, headers), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -115,11 +122,11 @@ public sealed class AzureManagementRepository(IAzureHttpClient httpClient, Uri b
     public async Task<HttpResponseMessage> PutAsync(Uri? requestUri, HttpContent? content)
     {
         ArgumentNullException.ThrowIfNull(requestUri);
-        return await WithRetryAsync(() => _httpClient.PutAsync(requestUri, content), requestUri.ToString(), _logger).ConfigureAwait(false);
+        return await WithRetryAsync(() => _httpClient.PutAsync(requestUri, content), requestUri.ToString(), _logger, _maxRetries).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Executes the specified HTTP action with automatic retries for throttling (HTTP 429) responses.
+    /// Executes the specified HTTP action with automatic retries
     /// </summary>
     /// <remarks>If the HTTP response status code is 429 (Too Many Requests), the method waits for a calculated delay before retrying the request.
     /// For other status codes, the response is returned immediately without further retries.</remarks>

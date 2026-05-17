@@ -20,13 +20,12 @@ namespace LogicApps.TestFramework.Specifications;
 [ExcludeFromCodeCoverage(Justification = "This file is tightly coupled with the Azure infrastructure and therefore cannot be tested in unit test.")]
 public abstract class BaseStepDefinition : IDisposable
 {
-    private AzureHttpClient? _logicAppHttpClient;
-    private AzureHttpClient? _storageAccountHttpClient;
-    private AzureHttpClient? _serviceBusHttpClient;
+    internal const string LogicAppRepositoryKey = "LogicApp";
+    internal const string StorageAccountRepositoryKey = "StorageAccount";
+    internal const string ServiceBusRepositoryKey = "ServiceBus";
 
-    private AzureManagementRepository? _logicAppAzureManagementRepository;
-    private AzureManagementRepository? _storageAccountAzureManagementRepository;
-    private AzureManagementRepository? _serviceBusAzureManagementRepository;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly bool _ownsServiceProvider;
 
     private IActionHelper? _actionHelper;
     private IActionFactory? _actionFactory;
@@ -52,20 +51,123 @@ public abstract class BaseStepDefinition : IDisposable
 
     protected string? CurrentWorkflowName { get; set; }
 
-    protected BaseStepDefinition()
+    /// <summary>
+    /// Initializes the step definition using the supplied <paramref name="serviceProvider"/>, or builds the
+    /// default one from <see cref="AppSettings.Configuration"/> when <see langword="null"/> is passed.
+    /// </summary>
+    /// <remarks>
+    /// Pass a pre-built <see cref="IServiceProvider"/> to substitute any registered service — for example,
+    /// to inject mock implementations of <see cref="IBlobStorageSender"/> or
+    /// <see cref="IServiceBusMessageSender"/> in unit/integration tests, or to register Managed Identity
+    /// credentials instead of the default client-secret flow.
+    /// <para>
+    /// When using Reqnroll the framework instantiates step definitions through its own DI container.
+    /// Wire the provider through <c>IContainerCustomization</c> (≈ 10 lines of setup in the test project)
+    /// so that Reqnroll resolves the correct <see cref="IServiceProvider"/> and passes it here.
+    /// </para>
+    /// </remarks>
+    /// <param name="serviceProvider">
+    /// An optional pre-built <see cref="IServiceProvider"/>. When <see langword="null"/>, a default provider is built automatically.
+    /// The step definition takes ownership of — and disposes — the provider only when it built the provider itself.
+    /// </param>
+    protected BaseStepDefinition(IServiceProvider? serviceProvider = null)
     {
-        _configuration = AppSettings.Configuration;
+        _ownsServiceProvider = serviceProvider is null;
+        _serviceProvider = serviceProvider ?? BuildDefaultServiceProvider(AppSettings.Configuration);
+
+        _configuration = _serviceProvider.GetRequiredService<IConfiguration>();
 
         var pollIntervalSeconds = int.TryParse(_configuration["PollIntervalSeconds"], out var parsedInterval) ? parsedInterval : 3;
         _pollInterval = TimeSpan.FromSeconds(pollIntervalSeconds);
 
-        InitializeLogicAppResources(_configuration);
+        _actionHelper = _serviceProvider.GetRequiredService<IActionHelper>();
+        _actionFactory = _serviceProvider.GetRequiredService<IActionFactory>();
 
-        InitializeStorageAccountResources(_configuration);
-        BlobStorageSender = new BlobStorageSender(_storageAccountAzureManagementRepository!);
+        BlobStorageSender = _serviceProvider.GetRequiredService<IBlobStorageSender>();
+        ServiceBusMessageSender = _serviceProvider.GetRequiredService<IServiceBusMessageSender>();
+    }
 
-        InitializeServiceBusResources(_configuration);
-        ServiceBusMessageSender = new ServiceBusMessageSender(_serviceBusAzureManagementRepository!);
+    /// <summary>
+    /// Builds the default <see cref="IServiceProvider"/> from the supplied configuration.
+    /// </summary>
+    /// <remarks>
+    /// The provider registers the following services:
+    /// <list type="bullet">
+    ///   <item>Three keyed <see cref="IAzureManagementRepository"/> singletons (keys: <c>"LogicApp"</c>, <c>"StorageAccount"</c>, <c>"ServiceBus"</c>).</item>
+    ///   <item><see cref="IBlobStorageSender"/> — backed by the <c>"StorageAccount"</c> repository.</item>
+    ///   <item><see cref="IServiceBusMessageSender"/> — backed by the <c>"ServiceBus"</c> repository.</item>
+    ///   <item><see cref="IActionHelper"/> and <see cref="IActionFactory"/> — backed by the <c>"LogicApp"</c> repository.</item>
+    ///   <item>A single shared <see cref="IHttpClientFactory"/> with the three named clients used by the repositories.</item>
+    /// </list>
+    /// Override registrations before passing the provider to the constructor to substitute any of these services.
+    /// </remarks>
+    /// <param name="configuration">The application configuration to use for Azure credentials and endpoint settings.</param>
+    /// <returns>A fully configured <see cref="IServiceProvider"/>.</returns>
+    public static IServiceProvider BuildDefaultServiceProvider(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var maxRetries = int.TryParse(configuration[StringConstants.MaxRetries], out var parsedRetries) ? parsedRetries : 5;
+
+        var services = new ServiceCollection();
+
+        services.AddSingleton(configuration);
+
+        services.AddHttpClient("AzureManagementClient", client =>
+        {
+            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+            client.DefaultRequestHeaders.Add("accept", "application/json");
+            client.Timeout = TimeSpan.FromMinutes(30);
+        });
+
+        services.AddHttpClient("AzurePublicHttpClient", client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(5);
+        });
+
+        services.AddHttpClient("EntraTokenClient");
+
+        services.AddSingleton<ITokenClient>(sp =>
+            new EntraTokenClient(sp.GetRequiredService<IHttpClientFactory>()));
+
+        services.AddKeyedSingleton<IAzureHttpClient, AzureHttpClient>(LogicAppRepositoryKey, (sp, _) =>
+            CreateAzureHttpClient(sp, configuration, new Uri("https://management.azure.com")));
+
+        services.AddKeyedSingleton<IAzureHttpClient, AzureHttpClient>(StorageAccountRepositoryKey, (sp, _) =>
+            CreateAzureHttpClient(sp, configuration, new Uri($"https://{configuration["StorageAccount"]!}.blob.core.windows.net")));
+
+        services.AddKeyedSingleton<IAzureHttpClient, AzureHttpClient>(ServiceBusRepositoryKey, (sp, _) =>
+            CreateAzureHttpClient(sp, configuration, new Uri($"https://{configuration["ServiceBusNamespace"]!}.servicebus.windows.net")));
+
+        services.AddKeyedSingleton<IAzureManagementRepository>(LogicAppRepositoryKey, (sp, _) =>
+            new AzureManagementRepository(sp.GetRequiredKeyedService<IAzureHttpClient>(LogicAppRepositoryKey), new Uri("https://management.azure.com"), maxRetries: maxRetries));
+
+        services.AddKeyedSingleton<IAzureManagementRepository>(StorageAccountRepositoryKey, (sp, _) =>
+            new AzureManagementRepository(sp.GetRequiredKeyedService<IAzureHttpClient>(StorageAccountRepositoryKey), new Uri($"https://{configuration["StorageAccount"]!}.blob.core.windows.net"), maxRetries: maxRetries));
+
+        services.AddKeyedSingleton<IAzureManagementRepository>(ServiceBusRepositoryKey, (sp, _) =>
+            new AzureManagementRepository(sp.GetRequiredKeyedService<IAzureHttpClient>(ServiceBusRepositoryKey), new Uri($"https://{configuration["ServiceBusNamespace"]!}.servicebus.windows.net"), maxRetries: maxRetries));
+
+        services.AddSingleton<IBlobStorageSender>(sp =>
+            new BlobStorageSender(sp.GetRequiredKeyedService<IAzureManagementRepository>(StorageAccountRepositoryKey)));
+
+        services.AddSingleton<IServiceBusMessageSender>(sp =>
+            new ServiceBusMessageSender(sp.GetRequiredKeyedService<IAzureManagementRepository>(ServiceBusRepositoryKey)));
+
+        services.AddSingleton<IActionHelper>(sp =>
+            new ActionHelper(sp.GetRequiredKeyedService<IAzureManagementRepository>(LogicAppRepositoryKey)));
+
+        services.AddSingleton<IActionFactory>(sp =>
+            new ActionFactory(configuration, sp.GetRequiredKeyedService<IAzureManagementRepository>(LogicAppRepositoryKey), sp.GetRequiredService<IActionHelper>()));
+
+        return services.BuildServiceProvider();
+    }
+
+    private static AzureHttpClient CreateAzureHttpClient(IServiceProvider sp, IConfiguration configuration, Uri baseAddress)
+    {
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+        var tokenClient = sp.GetRequiredService<ITokenClient>();
+        return new AzureHttpClient(httpClientFactory, tokenClient, baseAddress, configuration["TenantId"]!, configuration["ClientId"]!, configuration["ClientSecret"]!);
     }
 
     /// <summary>
@@ -77,7 +179,8 @@ public abstract class BaseStepDefinition : IDisposable
     {
         var loadRunsSinceMinutes = int.Parse(_configuration["LoadRunsSinceMinutes"]!, CultureInfo.InvariantCulture);
         var loadRunsSince = DateTime.UtcNow.AddMinutes(loadRunsSinceMinutes);
-        LogicApp = await Management.LogicApp.CreateAsync(_configuration, _logicAppAzureManagementRepository!, _actionFactory!, _actionHelper!, loadRunsSince).ConfigureAwait(false);
+        var logicAppRepository = _serviceProvider.GetRequiredKeyedService<IAzureManagementRepository>(LogicAppRepositoryKey);
+        LogicApp = await Management.LogicApp.CreateAsync(_configuration, logicAppRepository, _actionFactory!, _actionHelper!, loadRunsSince).ConfigureAwait(false);
     }
 
     #region Gherkin Steps - When (Triggers)
@@ -282,18 +385,18 @@ public abstract class BaseStepDefinition : IDisposable
         {
             var allActions = await workflowRun.GetWorkflowRunActionsAsync().ConfigureAwait(false);
 
-            Console.WriteLine($"Navigating to path: {path} and looking for these actions:");
+            TestContext.WriteLine($"Navigating to path: {path} and looking for these actions:");
             foreach (var action in allActions)
             {
-                Console.WriteLine($"  - Name: '{action.Name}', DesignerName: '{action.DesignerName}', Type: {action.GetType().Name}");
+                TestContext.WriteLine($"  - Name: '{action.Name}', DesignerName: '{action.DesignerName}', Type: {action.GetType().Name}");
             }
 
             var actionsAtPath = ActionPathNavigator.NavigateToPath(allActions, path);
 
-            Console.WriteLine($"The actual actions found at path '{path}': {actionsAtPath.Count}");
+            TestContext.WriteLine($"The actual actions found at path '{path}': {actionsAtPath.Count}");
             foreach (var action in actionsAtPath)
             {
-                Console.WriteLine($"  - Found: '{action.DesignerName}' ({action.Name}) - Status: {action.Status}");
+                TestContext.WriteLine($"  - Found: '{action.DesignerName}' ({action.Name}) - Status: {action.Status}");
             }
 
             if (actionsAtPath.Count == 0)
@@ -304,7 +407,7 @@ public abstract class BaseStepDefinition : IDisposable
 
             foreach (var expectedEvent in expectedEvents)
             {
-                Console.WriteLine($"Looking for action: '{expectedEvent.StepName}' with status '{expectedEvent.Status}'");
+                TestContext.WriteLine($"Looking for action: '{expectedEvent.StepName}' with status '{expectedEvent.Status}'");
 
                 var action = actionsAtPath.FirstOrDefault(a =>
                     a.DesignerName == expectedEvent.StepName ||
@@ -323,7 +426,7 @@ public abstract class BaseStepDefinition : IDisposable
                     return;
                 }
 
-                Console.WriteLine($"Found '{expectedEvent.StepName}' with correct status '{expectedEvent.Status}'");
+                TestContext.WriteLine($"Found '{expectedEvent.StepName}' with correct status '{expectedEvent.Status}'");
             }
         }
     }
@@ -421,12 +524,12 @@ public abstract class BaseStepDefinition : IDisposable
     /// Asynchronously retrieves the workflow run that is ready for processing, based on the current correlation identifier if available.
     /// </summary>
     /// <remarks>If the current correlation identifier is set, the method returns the workflow run with a matching correlation identifier.
-    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.
-    /// Throws <see cref="TimeoutException"/> if no run is found within the polling timeout.</remarks>
+    /// If not set, it returns the workflow run with the latest start time. The method waits for a short period and reloads the workflow before retrieving the runs.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve the workflow run. Cannot be null.</param>
     /// <param name="timeout">Maximum time to wait for the run to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the workflow run that matches the
     /// current correlation identifier if set; otherwise, the most recent workflow run, or null if no runs are available.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when no matching run is found within the specified <paramref name="timeout"/>.</exception>
     protected async Task<Management.IWorkflowRun?> GetReadyWorkflowRun(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
@@ -457,12 +560,12 @@ public abstract class BaseStepDefinition : IDisposable
     /// Asynchronously retrieves all workflow runs for the specified workflow that share the current correlation identifier.
     /// </summary>
     /// <remarks>This method reloads the workflow before retrieving its runs to ensure the latest state is used.
-    /// Only runs with a correlation identifier matching the current context are returned.
-    /// Throws <see cref="TimeoutException"/> if no correlated runs appear within the polling timeout.</remarks>
+    /// Only runs with a correlation identifier matching the current context are returned.</remarks>
     /// <param name="workflow">The workflow instance from which to retrieve correlated workflow runs. Cannot be null.</param>
     /// <param name="timeout">Maximum time to wait for correlated runs to appear. Defaults to 2 minutes.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of workflow runs that
     /// have the same correlation identifier as the current context.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when no correlated runs are found within the specified <paramref name="timeout"/>.</exception>
     protected async Task<IEnumerable<Management.IWorkflowRun>> GetCorrelatedWorkflowRuns(Management.IWorkflow workflow, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(workflow);
@@ -481,7 +584,7 @@ public abstract class BaseStepDefinition : IDisposable
                 .Where(run => run.CorrelationId == CurrentCorrelationId)
                 .ToList();
 
-            if (workflowRuns.Count > 0)
+            if (workflowRuns.Count > 0 && workflowRuns.All(run => run.Status != WorkflowRunStatus.Running && run.Status != WorkflowRunStatus.Waiting))
             {
                 return workflowRuns;
             }
@@ -540,111 +643,9 @@ public abstract class BaseStepDefinition : IDisposable
 
     #endregion
 
-    #region Infrastructure
-
-    /// <summary>
-    /// Initializes resources required for interacting with Azure Logic Apps using the specified configuration.
-    /// </summary>
-    /// <param name="configuration">The configuration settings used to initialize Logic App resources. Cannot be null.</param>
-    private void InitializeLogicAppResources(IConfiguration configuration)
-    {
-        var baseAddress = new Uri("https://management.azure.com");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
-
-        _logicAppHttpClient = azureHttpClient;
-        _logicAppAzureManagementRepository = repository;
-
-        _actionHelper = new ActionHelper(_logicAppAzureManagementRepository);
-        _actionFactory = new ActionFactory(configuration, _logicAppAzureManagementRepository, _actionHelper);
-    }
-
-    /// <summary>
-    /// Initializes resources required for accessing the Azure Storage account using the specified configuration.
-    /// </summary>
-    /// <param name="configuration">The configuration settings used to determine the storage account and initialize related resources. Must contain
-    /// a valid 'StorageAccount' entry.</param>
-    private void InitializeStorageAccountResources(IConfiguration configuration)
-    {
-        var baseAddress = new Uri($"https://{configuration["StorageAccount"]!}.blob.core.windows.net");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
-
-        _storageAccountHttpClient = azureHttpClient;
-        _storageAccountAzureManagementRepository = repository;
-    }
-
-    /// <summary>
-    /// Initializes the Service Bus HTTP client and Azure management repository using the specified configuration.
-    /// </summary>
-    /// <param name="configuration">The configuration settings used to determine the Service Bus namespace and other required parameters.
-    /// Cannot be null.</param>
-    private void InitializeServiceBusResources(IConfiguration configuration)
-    {
-        var baseAddress = new Uri($"https://{configuration["ServiceBusNamespace"]!}.servicebus.windows.net");
-        var (azureHttpClient, repository) = CreateAzureRepository(configuration, baseAddress);
-
-        _serviceBusHttpClient = azureHttpClient;
-        _serviceBusAzureManagementRepository = repository;
-    }
-
-    /// <summary>
-    /// Configures the specified HTTP client with a base address, default headers, version policy, and timeout suitable for JSON-based APIs.
-    /// </summary>
-    /// <remarks>Sets the client's base address, configures the default request version policy to use the requested version or lower,
-    /// adds an 'Accept: application/json' header, and sets the timeout to 30 minutes.</remarks>
-    /// <param name="client">The HTTP client instance to configure. Must not be null.</param>
-    /// <param name="baseUri">The base URI to assign to the HTTP client. Must be an absolute URI.</param>
-    private static void ConfigureHttpClient(HttpClient client, Uri baseUri)
-    {
-        client.BaseAddress = baseUri;
-        client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
-        client.DefaultRequestHeaders.Add("accept", "application/json");
-        client.Timeout = TimeSpan.FromMinutes(30);
-    }
-
-    /// <summary>
-    /// Creates and configures the Azure management repository and its supporting HTTP clients and token client using the specified configuration and base address.
-    /// </summary>
-    /// <remarks>The returned services are fully configured and ready for use with Azure management APIs.
-    /// The configuration must include valid Azure credentials. The caller is responsible for managing the lifetime of the returned objects as needed.</remarks>
-    /// <param name="configuration">The application configuration containing required Azure credentials and settings.
-    /// Must provide values for 'TenantId', 'ClientId', and 'ClientSecret'.</param>
-    /// <param name="baseAddress">The base URI for Azure management API requests.</param>
-    /// <returns>A tuple containing the HTTP client factory, token client, Azure HTTP client, and Azure management repository,
-    /// all configured for Azure management operations.</returns>
-    private static (AzureHttpClient azureHttpClient, AzureManagementRepository repository) CreateAzureRepository(IConfiguration configuration, Uri baseAddress)
-    {
-        var services = new ServiceCollection();
-
-        services.AddHttpClient("AzureManagementClient", client =>
-        {
-            ConfigureHttpClient(client, baseAddress);
-        });
-
-        services.AddHttpClient("AzurePublicHttpClient", client =>
-        {
-            client.Timeout = TimeSpan.FromMinutes(5);
-        });
-
-        services.AddHttpClient("EntraTokenClient");
-
-        var serviceProvider = services.BuildServiceProvider();
-
-        var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-        var tokenClient = new EntraTokenClient(httpClientFactory);
-
-        var azureHttpClient = new AzureHttpClient(httpClientFactory, tokenClient, baseAddress, configuration["TenantId"]!, configuration["ClientId"]!, configuration["ClientSecret"]!);
-        var repository = new AzureManagementRepository(azureHttpClient, baseAddress);
-
-        return (azureHttpClient, repository);
-    }
-
-    #endregion
-
     /// <summary>
     /// Releases all resources used by the current instance of the class.
     /// </summary>
-    /// <remarks>Call this method when you are finished using the object to free unmanaged resources and
-    /// perform other cleanup operations. After calling this method, the object should not be used.</remarks>
     public void Dispose()
     {
         Dispose(disposing: true);
@@ -669,14 +670,10 @@ public abstract class BaseStepDefinition : IDisposable
             _actionHelper = null;
             _actionFactory = null;
 
-            _logicAppHttpClient?.Dispose();
-            _logicAppAzureManagementRepository?.Dispose();
-
-            _storageAccountHttpClient?.Dispose();
-            _storageAccountAzureManagementRepository?.Dispose();
-
-            _serviceBusHttpClient?.Dispose();
-            _serviceBusAzureManagementRepository?.Dispose();
+            if (_ownsServiceProvider && _serviceProvider is IDisposable disposableProvider)
+            {
+                disposableProvider.Dispose();
+            }
         }
 
         _disposedValue = true;

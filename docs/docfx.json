@@ -6,6 +6,12 @@
         "src": "."
       }
     ],
+    "resource": [
+      {
+        "files": ["extras/**"],
+        "src": ".."
+      }
+    ],
     "globalMetadata": {
       "_appName": "LogicApps Standard Testing Framework",
       "_appTitle": "LogicApps Standard Testing Framework",

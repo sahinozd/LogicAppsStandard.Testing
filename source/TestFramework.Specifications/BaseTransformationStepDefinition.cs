@@ -80,7 +80,7 @@ public abstract class BaseTransformationStepDefinition<TSource, TDestination> : 
             NullValueHandling = NullValueHandling.Include
         });
 
-        var content = BlobRequestBuilder.Build(json, FileName);
+        var content = BlobRequestBuilder.Build(json, FileName, AppSettings.Configuration);
         await BlobStorageSender.UploadAsync(container, FileName, content).ConfigureAwait(false);
     }
 

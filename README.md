@@ -272,9 +272,8 @@ The integration test project reads configuration from an `appsettings.json` file
   "LogicAppApiVersion": "#{testFramework_la_api_version}#",
   "ServiceBusNamespace": "#{testFramework_sb_namespace}#",
   "StorageAccount": "#{testFramework_sa_name}#",
-  "CorrelationIdActionName": "#{testFramework_correlation_id_action_name}",
-  "VariableActionName": "Initialize_variables",
-  "CorrelationIdVariableName": "correlationId",
+  "VariableActionName": "#{testFramework_variable_action_name}#",
+  "CorrelationIdVariableName": "#{testFramework_correlation_id_variable_name}#",
   "LoadRunsSinceMinutes": "-10",
   "PollIntervalSeconds": "3"
 }
@@ -291,7 +290,6 @@ The integration test project reads configuration from an `appsettings.json` file
 | `LogicAppApiVersion` | The Azure Management REST API version to use for Logic Apps calls (e.g. `2024-04-01`). |
 | `ServiceBusNamespace` | The Service Bus namespace hostname prefix (e.g. `my-servicebus`). The framework builds the full hostname as `{namespace}.servicebus.windows.net`. |
 | `StorageAccount` | The Storage Account name (e.g. `mystorageaccount`). The framework builds the full endpoint as `{name}.blob.core.windows.net`. |
-| `CorrelationIdActionName` | The name of the Logic Apps action that sets the correlation ID variable in the receive workflow. Used by the framework to capture the correlation ID from the run for use in correlated multi-workflow assertions. |
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
 | `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
@@ -318,7 +316,6 @@ A typical local file looks like:
   "LogicAppApiVersion": "2024-04-01",
   "ServiceBusNamespace": "your-servicebus-namespace",
   "StorageAccount": "your-storage-account",
-  "CorrelationIdActionName": "Initialize_variables",
   "VariableActionName": "Initialize_variables",
   "CorrelationIdVariableName": "correlationId",
   "LoadRunsSinceMinutes": "-10",
@@ -439,7 +436,7 @@ There are two patterns depending on how the downstream system is called.
 
 When calling a backend through Azure API Management, pass `IsMockEnabled` as a custom request header. The API Management policy inspects the header and returns a mocked response when it is `True`, bypassing the real backend call entirely.
 
-![Logic App action passing MockingEnabled header to API Management](extras/ismockenabled-api-header.png)
+![Logic App action passing MockingEnabled header to API Management](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/ismockenabled-api-header.png)
 
 The corresponding API Management inbound policy:
 
@@ -476,7 +473,7 @@ The corresponding API Management inbound policy:
 
 When calling a system that does not support passing a custom header  -  for example SFTP, FTP, or a direct database connector  -  use a **Condition** action in the workflow itself. The `True` branch skips the actual action; the `False` branch executes it normally.
 
-![Logic App condition checking IsMockEnabled](extras/ismockenabled-condition.png)
+![Logic App condition checking IsMockEnabled](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/ismockenabled-condition.png)
 
 The condition expression evaluates `bool(parameters('IsMockEnabled'))` against `true`. When mocking is enabled, the `True` branch contains a no-op action (or nothing at all). This ensures the real connector action is never executed during test runs, so no test data reaches the target system.
 
@@ -622,11 +619,11 @@ Always disable mocking after the test run, regardless of whether the tests passe
 
 A complete Azure DevOps pipeline that incorporates deployment and integration testing typically looks like this, with a dedicated stage per environment:
 
-![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](extras/pipeline-run.png)
+![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run.png)
 
-![Stage with enable and disable mocking. In between the tests run](extras/pipeline-run-2.png)
+![Stage with enable and disable mocking. In between the tests run](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run-2.png)
 
-![In the Tests section of the pipeline the integration tests are being shown](extras/pipeline-run-3.png)
+![In the Tests section of the pipeline the integration tests are being shown](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run-3.png)
 
 The environment stages Development and Test follow the same sequence of jobs:
 
