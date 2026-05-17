@@ -1057,7 +1057,7 @@ await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", sbMessage, prope
 
 The Gherkin layer is built on [Reqnroll](https://reqnroll.net/) and exposes a rich set of step definitions that cover all common Logic Apps Standard testing scenarios. Tests are written in `.feature` files and bound to step definitions through Reqnroll's standard discovery mechanism.
 
-A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](TESTING_GUIDE.md).
+A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
 
 ### Receive-Process-Send Chain Validation
 
@@ -1301,4 +1301,4 @@ Recurrence (trigger)
 └── Catch (Scope)
 ```
 
-This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in `TESTING_GUIDE.md`.
+This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
