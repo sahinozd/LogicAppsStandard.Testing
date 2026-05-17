@@ -50,6 +50,7 @@ permissions:
 env:
   DOTNET_VERSION: '10.x'
   SOLUTION_PATH: 'LogicAppStandardManagementFramework.slnx'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MODELS_PROJECT: 'source/Management.Models/LogicApps.Management.Models.csproj'
   REPOSITORY_PROJECT: 'source/Management.Repository/LogicApps.Management.Repository.csproj'
   MANAGEMENT_PROJECT: 'source/Management/LogicApps.Management.csproj'
@@ -177,13 +178,13 @@ jobs:
         continue-on-error: true
 
       - name: Upload site for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/main' && always()
         with:
           path: ./site
 
       - name: Deploy site to GitHub Pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         if: github.ref == 'refs/heads/main' && always()
         id: pages-deployment
 
