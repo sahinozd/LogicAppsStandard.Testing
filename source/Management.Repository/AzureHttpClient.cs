@@ -12,6 +12,7 @@ namespace LogicApps.Management.Repository;
 public sealed class AzureHttpClient : IAzureHttpClient
 {
     private readonly string _scope, _tenantId, _clientId, _clientSecret;
+    private readonly Uri _baseAddress;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ITokenClient _tokenClient;
 
@@ -44,6 +45,7 @@ public sealed class AzureHttpClient : IAzureHttpClient
         _tenantId = tenantId ?? throw new ArgumentNullException(nameof(tenantId));
         
         ArgumentNullException.ThrowIfNull(baseAddress);
+        _baseAddress = baseAddress;
         _scope = $"{baseAddress}.default";
     }
 
@@ -280,10 +282,12 @@ public sealed class AzureHttpClient : IAzureHttpClient
     }
 
     /// <summary>
-    /// Configures the authorization header on the HTTP client.
+    /// Configures the authorization header and base address on the HTTP client.
     /// </summary>
     private void ConfigureAuthorization(HttpClient httpClient)
     {
+        httpClient.BaseAddress ??= _baseAddress;
+
         if (!string.IsNullOrEmpty(_accessToken))
         {
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
