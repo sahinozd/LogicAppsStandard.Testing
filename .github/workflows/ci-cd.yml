@@ -80,7 +80,7 @@ jobs:
         with:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          extra_args: --only-verified=false   # flag both verified AND unverified secrets
+          # --only-verified is a presence flag; omitting it reports both verified AND unverified secrets
 
       - name: Install .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v5
