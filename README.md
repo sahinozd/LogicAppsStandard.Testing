@@ -12,12 +12,13 @@ A .NET testing framework for **Azure Logic Apps Standard**
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
 3. [Installing the Packages](#installing-the-packages)
 4. [Prerequisites and Configuration](#prerequisites-and-configuration)
-5. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
-6. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
-7. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
-8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
-9. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-10. [Sample Workflow Definitions](#sample-workflow-definitions)
+5. [Known Limitations](#known-limitations)
+6. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
+7. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
+8. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
+9. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
+10. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
+11. [Sample Workflow Definitions](#sample-workflow-definitions)
 
 ---
 
