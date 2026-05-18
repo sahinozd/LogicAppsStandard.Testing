@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="40" height="40">
   <!-- Left curly brace -->
   <path d="M80,30 Q55,30 55,60 L55,120 Q55,150 30,150 Q55,150 55,180 L55,240 Q55,270 80,270"
         fill="none" stroke="#5BB8D4" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
