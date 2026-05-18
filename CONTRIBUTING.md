@@ -93,3 +93,9 @@ Please describe:
 ## 🙏 Thanks
 
 Your time and effort are appreciated - even if your contribution isn't ultimately merged.
+
+---
+
+## ☕ Support
+
+If you find this project useful, consider [buying me a coffee](https://ko-fi.com/sahinozd) — it helps keep the project maintained.
