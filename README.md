@@ -19,7 +19,7 @@ A .NET testing framework for **Azure Logic Apps Standard**
 9. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
 10. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
 11. [Sample Workflow Definitions](#sample-workflow-definitions)
-12. [Support](#support)
+12. [Support](#-support)
 
 ---
 
