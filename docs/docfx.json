@@ -15,6 +15,7 @@
     "globalMetadata": {
       "_appName": "LogicApps Standard Testing Framework",
       "_appTitle": "LogicApps Standard Testing Framework",
+      "_appLogoPath": "logo.svg",
       "_enableSearch": true,
       "_gitContribute": {
         "repo": "https://github.com/sahinozd/LogicAppsStandard.Testing",
