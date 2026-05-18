@@ -12,12 +12,14 @@ A .NET testing framework for **Azure Logic Apps Standard**
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
 3. [Installing the Packages](#installing-the-packages)
 4. [Prerequisites and Configuration](#prerequisites-and-configuration)
-5. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
-6. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
-7. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
-8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
-9. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-10. [Sample Workflow Definitions](#sample-workflow-definitions)
+5. [Known Limitations](#known-limitations)
+6. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
+7. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
+8. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
+9. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
+10. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
+11. [Sample Workflow Definitions](#sample-workflow-definitions)
+12. [Support](#support)
 
 ---
 
@@ -49,9 +51,6 @@ The `LogicApps.Management` library is a full object-oriented .NET model of Azure
 Each action type is modelled with its own class: `ScopeAction`, `ConditionAction`, `SwitchAction`, `ForEachAction`, `UntilAction`, and the base `Action` for standard connectors. Repetitions within loops are themselves modelled as typed objects (`ForEachActionRepetition`, `UntilActionRepetition`), each capable of loading their own child actions on demand.
 
 This means that from C#, reading a run's data looks like navigating an object graph  -  not parsing raw JSON.
-
-> **Always reflects your current deployment.**
-> The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
 
 ---
 
@@ -274,8 +273,10 @@ The integration test project reads configuration from an `appsettings.json` file
   "StorageAccount": "#{testFramework_sa_name}#",
   "VariableActionName": "#{testFramework_variable_action_name}#",
   "CorrelationIdVariableName": "#{testFramework_correlation_id_variable_name}#",
-  "LoadRunsSinceMinutes": "-10",
-  "PollIntervalSeconds": "3"
+  "LoadRunsSinceMinutes": "#{testFramework_load_runs_since_minutes}#",
+  "PollIntervalSeconds": "#{testFramework_poll_interval_seconds}#",
+  "BlobStorageApiVersion": "#{testFramework_blob_storage_api_version}#",
+  "MaxRetries": "#{testFramework_max_retries}#"
 }
 ```
 
@@ -290,10 +291,12 @@ The integration test project reads configuration from an `appsettings.json` file
 | `LogicAppApiVersion` | The Azure Management REST API version to use for Logic Apps calls (e.g. `2024-04-01`). |
 | `ServiceBusNamespace` | The Service Bus namespace hostname prefix (e.g. `my-servicebus`). The framework builds the full hostname as `{namespace}.servicebus.windows.net`. |
 | `StorageAccount` | The Storage Account name (e.g. `mystorageaccount`). The framework builds the full endpoint as `{name}.blob.core.windows.net`. |
+| `BlobStorageApiVersion` | The Azure Blob Storage REST API version to use for blob operations (e.g. `2023-11-03`). Defaults to `2023-11-03` if not specified. |
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
 | `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
 | `PollIntervalSeconds` | The number of seconds the framework waits between polling attempts while waiting for a workflow run to finish. Defaults to `3` if not specified. Increase this value to reduce Azure Management API call volume in slower environments. |
+| `MaxRetries` | The maximum number of retry attempts the framework makes when the Azure Management REST API returns a throttling response (HTTP 429). Increase this value in environments with high API call volume. |
 
 ### Local overrides with appsettings.local.json
 
@@ -319,13 +322,21 @@ A typical local file looks like:
   "VariableActionName": "Initialize_variables",
   "CorrelationIdVariableName": "correlationId",
   "LoadRunsSinceMinutes": "-10",
-  "PollIntervalSeconds": "3"
+  "PollIntervalSeconds": "3",
+  "BlobStorageApiVersion": "2023-11-03",
+  "MaxRetries": "5"
 }
 ```
 
 ---
 
 ## Known Limitations
+
+### Framework Always Reflects Your Current Deployment
+
+The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
+
+---
 
 ### Stateless Workflows Are Not Supported
 
@@ -1048,7 +1059,7 @@ await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", sbMessage, prope
 
 The Gherkin layer is built on [Reqnroll](https://reqnroll.net/) and exposes a rich set of step definitions that cover all common Logic Apps Standard testing scenarios. Tests are written in `.feature` files and bound to step definitions through Reqnroll's standard discovery mechanism.
 
-A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](TESTING_GUIDE.md).
+A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
 
 ### Receive-Process-Send Chain Validation
 
@@ -1292,4 +1303,10 @@ Recurrence (trigger)
 └── Catch (Scope)
 ```
 
-This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in `TESTING_GUIDE.md`.
+This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
+
+---
+
+## ☕ Support
+
+If you find this project useful, consider [buying me a coffee](https://ko-fi.com/sahinozd) — it helps keep the project maintained.
