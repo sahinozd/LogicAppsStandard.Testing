@@ -246,8 +246,6 @@ The following Azure resources are required:
 Create an App Registration in Microsoft Entra ID with the following:
 
 - A **client secret** (used for authentication)
-- The application permission **`access_as_application`** (Application ID: `25c1e7fc-03c5-4fdd-b076-716ebcb74a84`) enabled
-
 Assign the following **RBAC roles** to the App Registration on the respective resources:
 
 | Resource | Role |
