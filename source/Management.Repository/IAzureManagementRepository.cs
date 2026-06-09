@@ -5,13 +5,11 @@ public interface IAzureManagementRepository
     /// <summary>
     /// Sends an HTTP GET or POST request to the specified relative URI and deserializes the response body as an object of type T.
     /// </summary>
-    /// <remarks>The method automatically authorizes the request before sending it. Retries are performed according to the specified retry count if the request fails.</remarks>
     /// <typeparam name="T">The type into which the response content is deserialized.</typeparam>
     /// <param name="relativeUri">The relative URI of the resource to request. Combined with the base address to form the full request URI.</param>
     /// <param name="content">The HTTP content to send with the request. If null, a GET request is sent; otherwise, a POST request is sent with the specified content.</param>
-    /// <param name="retryCount">The maximum number of times to retry the request if it fails. Must be greater than or equal to 1.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the deserialized object of type T, or null if the response content is empty.</returns>
-    Task<T?> GetObjectAsync<T>(Uri relativeUri, HttpContent? content = null, int retryCount = 3);
+    Task<T?> GetObjectAsync<T>(Uri relativeUri, HttpContent? content = null);
 
     /// <summary>
     /// Sends an HTTP GET request to a public endpoint without authorization and deserializes the response content to an object of type T.

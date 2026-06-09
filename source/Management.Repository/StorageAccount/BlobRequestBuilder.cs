@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
+using LogicApps.Management.Models.Constants;
+using Microsoft.Extensions.Configuration;
 
 namespace LogicApps.Management.Repository.StorageAccount;
 
@@ -11,19 +13,27 @@ namespace LogicApps.Management.Repository.StorageAccount;
 public static class BlobRequestBuilder
 {
     /// <summary>
+    /// The default Azure Blob Storage REST API version used when no version is supplied via configuration.
+    /// </summary>
+    public const string DefaultApiVersion = "2023-11-03";
+
+    /// <summary>
     /// Creates an HTTP content object for uploading a block blob with the specified payload and file name, including required Azure Blob Storage headers.
     /// </summary>
     /// <remarks>The returned content includes headers such as 'x-ms-date', 'x-ms-version', 'x-ms-blob-type', and 'x-ms-blob-content-type',
     /// which are required for Azure Blob Storage REST API operations. The MIME type is determined based on the provided file name.</remarks>
     /// <param name="payload">The string payload to include in the HTTP content body. Represents the data to be uploaded as the blob.</param>
     /// <param name="fileName">The name of the file to be associated with the blob. Used to determine the MIME type for the content.</param>
+    /// <param name="configuration">Optional configuration used to read the <c>BlobStorageApiVersion</c> key.
+    /// When <see langword="null"/> or when the key is absent, <see cref="DefaultApiVersion"/> is used.</param>
     /// <returns>An instance of HttpContent containing the payload and headers required for Azure Blob Storage block blob upload.</returns>
-    public static HttpContent Build(string payload, string fileName)
+    public static HttpContent Build(string payload, string fileName, IConfiguration? configuration = null)
     {
+        var apiVersion = configuration?[StringConstants.BlobStorageApiVersion] ?? DefaultApiVersion;
         var content = new StringContent(payload, Encoding.UTF8);
 
         content.Headers.Add("x-ms-date", DateTime.UtcNow.ToString("R", CultureInfo.InvariantCulture));
-        content.Headers.Add("x-ms-version", "2023-11-03");
+        content.Headers.Add("x-ms-version", apiVersion);
         content.Headers.Add("x-ms-blob-type", "BlockBlob");
         content.Headers.Add("x-ms-blob-content-type", MimeTypes.GetMimeType(fileName));
 

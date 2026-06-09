@@ -11,7 +11,7 @@ public class ActionPathNavigatorTests
     public void NavigateToPath_WithNullActions_ThrowsArgumentNullException()
     {
         // Arrange
-        IList<BaseAction> actions = null!;
+        IReadOnlyList<BaseAction> actions = null!;
         const string path = "Test";
 
         // Act & Assert
@@ -22,7 +22,7 @@ public class ActionPathNavigatorTests
     public void NavigateToPath_WithNullPath_ThrowsArgumentNullException()
     {
         // Arrange
-        IList<BaseAction> actions = [];
+        IReadOnlyList<BaseAction> actions = [];
         string path = null!;
 
         // Act & Assert
@@ -33,7 +33,7 @@ public class ActionPathNavigatorTests
     public void NavigateToPath_WithEmptyPath_ThrowsArgumentException()
     {
         // Arrange
-        IList<BaseAction> actions = [];
+        IReadOnlyList<BaseAction> actions = [];
         const string path = "";
 
         // Act & Assert
@@ -44,7 +44,7 @@ public class ActionPathNavigatorTests
     public void NavigateToPath_WithWhitespacePath_ThrowsArgumentException()
     {
         // Arrange
-        IList<BaseAction> actions = [];
+        IReadOnlyList<BaseAction> actions = [];
         const string path = "   ";
 
         // Act & Assert
@@ -62,7 +62,7 @@ public class ActionPathNavigatorTests
         scopeAction.Actions.Add(childAction1);
         scopeAction.Actions.Add(childAction2);
 
-        IList<BaseAction> actions = [scopeAction];
+        IReadOnlyList<BaseAction> actions = [scopeAction];
         const string path = "TestScope";
 
         // Act
@@ -79,7 +79,7 @@ public class ActionPathNavigatorTests
     {
         // Arrange
         var scopeAction = new ScopeAction("TestScope", ActionType.Scope);
-        IList<BaseAction> actions = [scopeAction];
+        IReadOnlyList<BaseAction> actions = [scopeAction];
         const string path = "NonExistent";
 
         // Act
@@ -101,7 +101,7 @@ public class ActionPathNavigatorTests
         var outerScope = new ScopeAction("OuterScope", ActionType.Scope);
         outerScope.Actions.Add(innerScope);
 
-        IList<BaseAction> actions = [outerScope];
+        IReadOnlyList<BaseAction> actions = [outerScope];
         const string path = "OuterScope.InnerScope";
 
         // Act
@@ -126,7 +126,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("TestScope", ActionType.Scope);
         scope.Actions.Add(condition);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "TestScope.TestCondition.actions";
 
         // Act
@@ -151,7 +151,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("TestScope", ActionType.Scope);
         scope.Actions.Add(condition);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "TestScope.TestCondition.else";
 
         // Act
@@ -170,7 +170,7 @@ public class ActionPathNavigatorTests
         var scopeAction = new ScopeAction("TestScope", ActionType.Scope);
         scopeAction.Actions.Add(childAction);
 
-        IList<BaseAction> actions = [scopeAction];
+        IReadOnlyList<BaseAction> actions = [scopeAction];
         const string path = "testscope"; // lowercase
 
         // Act
@@ -188,7 +188,7 @@ public class ActionPathNavigatorTests
         var scopeAction = new ScopeAction("TestScope", ActionType.Scope) { DesignerName = "Test Scope" };
         scopeAction.Actions.Add(childAction);
 
-        IList<BaseAction> actions = [scopeAction];
+        IReadOnlyList<BaseAction> actions = [scopeAction];
         const string path = "Test Scope"; // Using designer name with space
 
         // Act
@@ -214,7 +214,7 @@ public class ActionPathNavigatorTests
         var level1 = new ScopeAction("Level1", ActionType.Scope);
         level1.Actions.Add(level2);
 
-        IList<BaseAction> actions = [level1];
+        IReadOnlyList<BaseAction> actions = [level1];
         const string path = "Level1.Level2.Level3";
 
         // Act
@@ -233,7 +233,7 @@ public class ActionPathNavigatorTests
         var outerScope = new ScopeAction("OuterScope", ActionType.Scope);
         outerScope.Actions.Add(innerScope);
 
-        IList<BaseAction> actions = [outerScope];
+        IReadOnlyList<BaseAction> actions = [outerScope];
         const string path = "OuterScope.NonExistent.InnerScope";
 
         // Act
@@ -247,7 +247,7 @@ public class ActionPathNavigatorTests
     public void NavigateToPath_WithEmptyActions_ReturnsEmpty()
     {
         // Arrange
-        IList<BaseAction> actions = [];
+        IReadOnlyList<BaseAction> actions = [];
         const string path = "AnyPath";
 
         // Act
@@ -262,7 +262,7 @@ public class ActionPathNavigatorTests
     {
         // Arrange
         var simpleAction = new Management.Actions.Action("SimpleAction", ActionType.Action);
-        IList<BaseAction> actions = [simpleAction];
+        IReadOnlyList<BaseAction> actions = [simpleAction];
         const string path = "SimpleAction";
 
         // Act
@@ -289,7 +289,7 @@ public class ActionPathNavigatorTests
         switchAction.Cases.Add(premiumCase);
         switchAction.Cases.Add(standardCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "RouteByTier.Premium";
 
         // Act
@@ -312,7 +312,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("RouteByType", ActionType.Switch);
         switchAction.Cases.Add(defaultCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "RouteByType.Default";
 
         // Act
@@ -333,7 +333,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("RouteByTier", ActionType.Switch);
         switchAction.Cases.Add(premiumCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "RouteByTier.NonExistentCase";
 
         // Act
@@ -355,7 +355,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("RouteByTier", ActionType.Switch);
         switchAction.Cases.Add(premiumCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "RouteByTier.premium"; // lowercase
 
         // Act
@@ -381,7 +381,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("ProcessScope", ActionType.Scope);
         scope.Actions.Add(switchAction);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "ProcessScope.MySwitch.Case1";
 
         // Act
@@ -414,7 +414,7 @@ public class ActionPathNavigatorTests
         switchAction.Cases.Add(case2);
         switchAction.Cases.Add(case3);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "MultiSwitch.Case2";
 
         // Act
@@ -435,7 +435,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("MySwitch", ActionType.Switch);
         switchAction.Cases.Add(emptyCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "MySwitch.EmptyCase";
 
         // Act
@@ -460,7 +460,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("ProcessScope", ActionType.Scope);
         scope.Actions.Add(switchAction);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "ProcessScope.SwitchPriority.Priority1";
 
         // Act
@@ -489,7 +489,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("ProcessScope", ActionType.Scope);
         scope.Actions.Add(condition);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "ProcessScope.CheckCondition.actions.RouteByType.TypeA";
 
         // Act
@@ -518,7 +518,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("Scope", ActionType.Scope);
         scope.Actions.Add(condition);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "Scope.Condition.actions.Switch.Case1";
 
         // Act
@@ -542,7 +542,7 @@ public class ActionPathNavigatorTests
         scope.Actions.Add(action2);
         scope.Actions.Add(action3);
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "MultipleActions";
 
         // Act
@@ -566,7 +566,7 @@ public class ActionPathNavigatorTests
         condition.DefaultActions.Add(trueAction);
         condition.ElseActions.Add(falseAction);
 
-        IList<BaseAction> actions = [condition];
+        IReadOnlyList<BaseAction> actions = [condition];
 
         // Act - Access TRUE branch
         var trueResult = ActionPathNavigator.NavigateToPath(actions, "MyCondition.actions");
@@ -597,7 +597,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("MySwitch", ActionType.Switch);
         switchAction.Cases.Add(switchCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "MySwitch.MatchingCase";
 
         // Act
@@ -615,7 +615,7 @@ public class ActionPathNavigatorTests
         var scope = new ScopeAction("NotALoop", ActionType.Scope);
         scope.Actions.Add(new Management.Actions.Action("Child", ActionType.Action));
 
-        IList<BaseAction> actions = [scope];
+        IReadOnlyList<BaseAction> actions = [scope];
         const string path = "NotALoop[1]"; // Index on non-loop action
 
         // Act
@@ -640,7 +640,7 @@ public class ActionPathNavigatorTests
         var switchAction = new SwitchAction("MySwitch", ActionType.Switch);
         switchAction.Cases.Add(switchCase);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "MySwitch.Case1.MyCondition.actions";
 
         // Act
@@ -662,7 +662,7 @@ public class ActionPathNavigatorTests
         condition.DefaultActions.Add(action1);
         condition.DefaultActions.Add(action2);
 
-        IList<BaseAction> actions = [condition];
+        IReadOnlyList<BaseAction> actions = [condition];
         const string path = "Check.actions";
 
         // Act
@@ -683,7 +683,7 @@ public class ActionPathNavigatorTests
         condition.ElseActions.Add(elseAction1);
         condition.ElseActions.Add(elseAction2);
 
-        IList<BaseAction> actions = [condition];
+        IReadOnlyList<BaseAction> actions = [condition];
         const string path = "Check.else";
 
         // Act
@@ -704,7 +704,7 @@ public class ActionPathNavigatorTests
         condition.DefaultActions.Add(trueAction);
         condition.ElseActions.Add(falseAction);
 
-        IList<BaseAction> actions = [condition];
+        IReadOnlyList<BaseAction> actions = [condition];
         const string path = "MyCondition"; // No branch specified
 
         // Act
@@ -733,7 +733,7 @@ public class ActionPathNavigatorTests
         switchAction.Cases.Add(case1);
         switchAction.Cases.Add(case2);
 
-        IList<BaseAction> actions = [switchAction];
+        IReadOnlyList<BaseAction> actions = [switchAction];
         const string path = "MySwitch"; // No case specified
 
         // Act

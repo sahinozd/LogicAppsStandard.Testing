@@ -22,4 +22,7 @@ public sealed record WorkflowRunProperties
     
     [JsonProperty("waitEndTime")]
     public string? WaitEndTime { get; private set; }
+
+    [JsonProperty("error")]
+    public Error? Error { get; private set; }
 }

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using Newtonsoft.Json;
 
@@ -8,14 +9,23 @@ namespace LogicApps.Management.Repository;
 /// This client handles authentication and basic HTTP operations without retry logic.
 /// Retry logic is handled at the repository layer.
 /// </summary>
-public class AzureHttpClient : IAzureHttpClient
+public sealed class AzureHttpClient : IAzureHttpClient
 {
     private readonly string _scope, _tenantId, _clientId, _clientSecret;
+    private readonly Uri _baseAddress;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ITokenClient _tokenClient;
-    private bool _disposedValue;
-    private bool _authorized;
+
+    // Acquire this before reading or writing _accessToken / _tokenExpiresAt.
+    private readonly SemaphoreSlim _authLock = new(1, 1);
     private string? _accessToken;
+    private DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
+
+    // Refresh the token 60 seconds before it actually expires so in-flight requests
+    // are never sent with a token that is about to expire.
+    private static readonly TimeSpan TokenExpiryBuffer = TimeSpan.FromSeconds(60);
+
+    private bool _disposedValue;
 
     /// <summary>
     /// Initializes a new instance of the AzureHttpClient class.
@@ -35,6 +45,7 @@ public class AzureHttpClient : IAzureHttpClient
         _tenantId = tenantId ?? throw new ArgumentNullException(nameof(tenantId));
         
         ArgumentNullException.ThrowIfNull(baseAddress);
+        _baseAddress = baseAddress;
         _scope = $"{baseAddress}.default";
     }
 
@@ -45,12 +56,12 @@ public class AzureHttpClient : IAzureHttpClient
     {
         ArgumentNullException.ThrowIfNull(requestUri);
 
-        await Authorize().ConfigureAwait(false);
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
 
         var httpClient = _httpClientFactory.CreateClient("AzureManagementClient");
         ConfigureAuthorization(httpClient);
 
-        var response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        var response = await ExecuteAuthorizedAsync(httpClient, () => httpClient.GetAsync(requestUri, cancellationToken), cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -68,12 +79,12 @@ public class AzureHttpClient : IAzureHttpClient
     {
         ArgumentNullException.ThrowIfNull(requestUri);
 
-        await Authorize().ConfigureAwait(false);
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
 
         var httpClient = _httpClientFactory.CreateClient("AzureManagementClient");
         ConfigureAuthorization(httpClient);
 
-        return await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        return await ExecuteAuthorizedAsync(httpClient, () => httpClient.GetAsync(requestUri, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -83,12 +94,12 @@ public class AzureHttpClient : IAzureHttpClient
     {
         ArgumentNullException.ThrowIfNull(requestUri);
 
-        await Authorize().ConfigureAwait(false);
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
 
         var httpClient = _httpClientFactory.CreateClient("AzureManagementClient");
         ConfigureAuthorization(httpClient);
 
-        var response = await httpClient.PostAsync(requestUri, content, cancellationToken).ConfigureAwait(false);
+        var response = await ExecuteAuthorizedAsync(httpClient, () => httpClient.PostAsync(requestUri, content, cancellationToken), cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -106,7 +117,7 @@ public class AzureHttpClient : IAzureHttpClient
     {
         ArgumentNullException.ThrowIfNull(requestUri);
 
-        await Authorize().ConfigureAwait(false);
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
 
         var httpClient = _httpClientFactory.CreateClient("AzureManagementClient");
         ConfigureAuthorization(httpClient);
@@ -116,13 +127,17 @@ public class AzureHttpClient : IAzureHttpClient
             foreach (var header in headers)
             {
                 if (httpClient.DefaultRequestHeaders.Contains(header.Key))
+                {
                     httpClient.DefaultRequestHeaders.Remove(header.Key);
+                }
 
                 httpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
             }
         }
 
-        return await httpClient.PostAsync(requestUri, content, cancellationToken).ConfigureAwait(false);
+        var response = await ExecuteAuthorizedAsync(httpClient, () => httpClient.PostAsync(requestUri, content, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        return response;
     }
 
     /// <summary>
@@ -132,12 +147,12 @@ public class AzureHttpClient : IAzureHttpClient
     {
         ArgumentNullException.ThrowIfNull(requestUri);
 
-        await Authorize().ConfigureAwait(false);
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
 
         var httpClient = _httpClientFactory.CreateClient("AzureManagementClient");
         ConfigureAuthorization(httpClient);
 
-        return await httpClient.PutAsync(requestUri, content, cancellationToken).ConfigureAwait(false);
+        return await ExecuteAuthorizedAsync(httpClient, () => httpClient.PutAsync(requestUri, content, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -194,25 +209,85 @@ public class AzureHttpClient : IAzureHttpClient
     }
 
     /// <summary>
-    /// Performs an asynchronous authorization operation using client credentials and sets the authorization header for subsequent HTTP requests.
+    /// Ensures a valid access token is available.
+    /// Acquires a new token when none exists, when the current token has expired (or is within the expiry buffer), or when the server returns 401.
+    /// Thread-safe: at most one token request is in-flight at a time.
     /// </summary>
-    private async Task Authorize()
+    private async Task AuthorizeAsync(CancellationToken cancellationToken = default)
     {
-        if (_authorized)
+        // Fast path: no lock needed when the token is still fresh.
+        if (!string.IsNullOrEmpty(_accessToken) && DateTimeOffset.UtcNow < _tokenExpiresAt)
         {
             return;
         }
 
-        var token = await _tokenClient.GetTokenAsync(_clientId, _clientSecret, _scope, _tenantId, CancellationToken.None).ConfigureAwait(false);
-        _accessToken = token.AccessToken;
-        _authorized = true;
+        await _authLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Recheck inside the lock: another thread may have refreshed already.
+            if (!string.IsNullOrEmpty(_accessToken) && DateTimeOffset.UtcNow < _tokenExpiresAt)
+            {
+                return;
+            }
+
+            var token = await _tokenClient.GetTokenAsync(_clientId, _clientSecret, _scope, _tenantId, cancellationToken).ConfigureAwait(false);
+            _accessToken = token.AccessToken;
+            _tokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn) - TokenExpiryBuffer;
+        }
+        finally
+        {
+            _authLock.Release();
+        }
     }
 
     /// <summary>
-    /// Configures the authorization header on the HTTP client.
+    /// Executes the HTTP action and, if the server returns 401, refreshes the access token
+    /// and retries once with the updated authorization header.
+    /// </summary>
+    private async Task<HttpResponseMessage> ExecuteAuthorizedAsync(HttpClient httpClient, Func<Task<HttpResponseMessage>> action, CancellationToken cancellationToken)
+    {
+        var response = await action().ConfigureAwait(false);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        return await RetryWithFreshTokenAsync(() =>
+        {
+            ConfigureAuthorization(httpClient);
+            return action();
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Forces a token refresh and retries the HTTP action once. Called when the server returns 401.
+    /// </summary>
+    private async Task<HttpResponseMessage> RetryWithFreshTokenAsync(Func<Task<HttpResponseMessage>> action, CancellationToken cancellationToken)
+    {
+        // Invalidate the cached token so AuthorizeAsync will fetch a new one.
+        await _authLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _accessToken = null;
+            _tokenExpiresAt = DateTimeOffset.MinValue;
+        }
+        finally
+        {
+            _authLock.Release();
+        }
+
+        await AuthorizeAsync(cancellationToken).ConfigureAwait(false);
+        return await action().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Configures the authorization header and base address on the HTTP client.
     /// </summary>
     private void ConfigureAuthorization(HttpClient httpClient)
     {
+        httpClient.BaseAddress ??= _baseAddress;
+
         if (!string.IsNullOrEmpty(_accessToken))
         {
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
@@ -224,29 +299,12 @@ public class AzureHttpClient : IAzureHttpClient
     /// </summary>
     public void Dispose()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Releases the unmanaged resources used by the object and optionally releases the managed resources.
-    /// </summary>
-    /// <remarks>
-    /// HttpClients created by IHttpClientFactory are managed by the factory and should not be disposed.
-    /// </remarks>
-    protected virtual void Dispose(bool disposing)
-    {
         if (_disposedValue)
         {
             return;
         }
 
-        if (disposing)
-        {
-            // HttpClients created by IHttpClientFactory should not be disposed
-            // The factory manages their lifecycle
-        }
-
+        _authLock.Dispose();
         _disposedValue = true;
     }
 }

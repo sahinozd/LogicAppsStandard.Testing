@@ -505,7 +505,7 @@ internal sealed class WorkflowTriggerTests
             .Returns(Task.FromResult(errorResponse));
 
         // Act
-        WorkflowTrigger? trigger = null;
+        IWorkflowTrigger? trigger = null;
         Exception? caughtException = null;
 
         try
@@ -576,7 +576,7 @@ internal sealed class WorkflowTriggerTests
         var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
         // Act
-        var response = await trigger.Run(null).ConfigureAwait(false);
+        var response = await trigger.RunAsync(null).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -636,7 +636,7 @@ internal sealed class WorkflowTriggerTests
         var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
         // Act
-        var response = await trigger.Run(null).ConfigureAwait(false);
+        var response = await trigger.RunAsync(null).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -697,7 +697,7 @@ internal sealed class WorkflowTriggerTests
         using var content = new StringContent("""{"testData": "value"}""");
 
         // Act
-        var response = await trigger.Run(content).ConfigureAwait(false);
+        var response = await trigger.RunAsync(content).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -764,7 +764,7 @@ internal sealed class WorkflowTriggerTests
         };
 
         // Act
-        await trigger.Run(content, requestHeaders).ConfigureAwait(false);
+        await trigger.RunAsync(content, requestHeaders).ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -776,7 +776,7 @@ internal sealed class WorkflowTriggerTests
     }
 
     [Test]
-    public async Task Properties_Should_Be_Settable()
+    public async Task Properties_Should_Be_Populated_From_Api()
     {
         // Arrange
         _azureManagementRepository
@@ -792,48 +792,38 @@ internal sealed class WorkflowTriggerTests
             .PostAsync(Arg.Any<Uri>(), Arg.Any<HttpContent>())
             .Returns(Task.FromResult(callbackResponse));
 
+        // Act
         var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
-        // Act
-        trigger.DesignerName = "Custom Designer Name";
-        trigger.Id = "/custom/id";
-        trigger.Name = "CustomName";
-        trigger.Type = "CustomType";
-
-        // Assert
+        // Assert - values come from the JSON defined in SetUp
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(trigger.DesignerName, Is.EqualTo("Custom Designer Name"));
-            Assert.That(trigger.Id, Is.EqualTo("/custom/id"));
-            Assert.That(trigger.Name, Is.EqualTo("CustomName"));
-            Assert.That(trigger.Type, Is.EqualTo("CustomType"));
+            Assert.That(trigger.DesignerName, Is.EqualTo("manual"));
+            Assert.That(trigger.Id, Is.EqualTo("/workflows/workflow/triggers/manual"));
+            Assert.That(trigger.Name, Is.EqualTo("manual"));
+            Assert.That(trigger.Type, Is.EqualTo("Microsoft.Logic/workflows/triggers"));
         }
     }
 
     [Test]
-    public async Task Properties_Should_Handle_Null_Values()
+    public async Task Properties_Should_Be_Null_When_Api_Returns_Empty_Response()
     {
-        // Arrange
+        // Arrange - return null so the trigger has no properties to map
         _azureManagementRepository
             .GetObjectAsync<Response<Trigger>>(Arg.Any<Uri>())
-            .Returns(Task.FromResult(_triggerResponse));
+            .Returns(Task.FromResult<Response<Trigger>?>(null));
 
         var callbackResponse = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent("""{"value": "https://example.com/workflows/workflow/triggers/manual/run"}""")
+            Content = new StringContent("{\"value\": \"https://example.com/triggers/manual/run\"}")
         };
 
         _azureManagementRepository
             .PostAsync(Arg.Any<Uri>(), Arg.Any<HttpContent>())
             .Returns(Task.FromResult(callbackResponse));
 
-        var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
-
         // Act
-        trigger.DesignerName = null;
-        trigger.Id = null;
-        trigger.Name = null;
-        trigger.Type = null;
+        var trigger = await WorkflowTrigger.CreateAsync(_configuration, _azureManagementRepository, "workflow").ConfigureAwait(false);
 
         // Assert
         using (Assert.EnterMultipleScope())

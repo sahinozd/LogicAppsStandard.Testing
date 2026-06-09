@@ -12,13 +12,14 @@ A .NET testing framework for **Azure Logic Apps Standard**
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
 3. [Installing the Packages](#installing-the-packages)
 4. [Prerequisites and Configuration](#prerequisites-and-configuration)
-5. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
-6. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
-7. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
-8. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
-9. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
-10. [Sample Workflow Definitions](#sample-workflow-definitions)
-11. [Unit Test Coverage](#unit-test-coverage)
+5. [Known Limitations](#known-limitations)
+6. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
+7. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
+8. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
+9. [Uploading Blobs to Azure Storage Account](#uploading-blobs-to-azure-storage-account)
+10. [Writing Tests in Gherkin](#writing-tests-in-gherkin)
+11. [Sample Workflow Definitions](#sample-workflow-definitions)
+12. [Support](#-support)
 
 ---
 
@@ -268,9 +269,12 @@ The integration test project reads configuration from an `appsettings.json` file
   "LogicAppApiVersion": "#{testFramework_la_api_version}#",
   "ServiceBusNamespace": "#{testFramework_sb_namespace}#",
   "StorageAccount": "#{testFramework_sa_name}#",
-  "CorrelationIdActionName": "#{testFramework_correlation_id_action_name}",
-  "VariableActionName": "Initialize_variables",
-  "CorrelationIdVariableName": "correlationId"
+  "VariableActionName": "#{testFramework_variable_action_name}#",
+  "CorrelationIdVariableName": "#{testFramework_correlation_id_variable_name}#",
+  "LoadRunsSinceMinutes": "#{testFramework_load_runs_since_minutes}#",
+  "PollIntervalSeconds": "#{testFramework_poll_interval_seconds}#",
+  "BlobStorageApiVersion": "#{testFramework_blob_storage_api_version}#",
+  "MaxRetries": "#{testFramework_max_retries}#"
 }
 ```
 
@@ -285,9 +289,73 @@ The integration test project reads configuration from an `appsettings.json` file
 | `LogicAppApiVersion` | The Azure Management REST API version to use for Logic Apps calls (e.g. `2024-04-01`). |
 | `ServiceBusNamespace` | The Service Bus namespace hostname prefix (e.g. `my-servicebus`). The framework builds the full hostname as `{namespace}.servicebus.windows.net`. |
 | `StorageAccount` | The Storage Account name (e.g. `mystorageaccount`). The framework builds the full endpoint as `{name}.blob.core.windows.net`. |
-| `CorrelationIdActionName` | The name of the Logic Apps action that sets the correlation ID variable in the receive workflow. Used by the framework to capture the correlation ID from the run for use in correlated multi-workflow assertions. |
+| `BlobStorageApiVersion` | The Azure Blob Storage REST API version to use for blob operations (e.g. `2023-11-03`). Defaults to `2023-11-03` if not specified. |
 | `VariableActionName` | The name of the action that initialises variables (default: `Initialize_variables`). Used to locate the correlation ID variable within the run. |
 | `CorrelationIdVariableName` | The name of the variable within the initialise-variables action that holds the correlation ID (default: `correlationId`). |
+| `LoadRunsSinceMinutes` | A negative integer representing the number of minutes to look back when querying for workflow runs. For example, `-10` means only runs started within the last 10 minutes are considered. Increase the magnitude (e.g. `-30`) if your workflows take longer to appear in the Azure Management API. |
+| `PollIntervalSeconds` | The number of seconds the framework waits between polling attempts while waiting for a workflow run to finish. Defaults to `3` if not specified. Increase this value to reduce Azure Management API call volume in slower environments. |
+| `MaxRetries` | The maximum number of retry attempts the framework makes when the Azure Management REST API returns a throttling response (HTTP 429). Increase this value in environments with high API call volume. |
+
+### Local overrides with appsettings.local.json
+
+During local development you often need to supply real credentials without committing them to source control. The test framework supports an optional `appsettings.local.json` file that is layered on top of `appsettings.json` at runtime.
+
+- **Values in `appsettings.local.json` override the corresponding keys in `appsettings.json`.**
+- The file is optional — if it does not exist the framework runs with only `appsettings.json`.
+- **Add `appsettings.local.json` to your `.gitignore`** to prevent accidental commits of real credentials.
+
+A typical local file looks like:
+
+```json
+{
+  "ClientId": "your-real-client-id",
+  "ClientSecret": "your-real-client-secret",
+  "TenantId": "your-real-tenant-id",
+  "SubscriptionId": "your-real-subscription-id",
+  "ResourceGroup": "your-resource-group",
+  "LogicAppName": "your-logic-app-name",
+  "LogicAppApiVersion": "2024-04-01",
+  "ServiceBusNamespace": "your-servicebus-namespace",
+  "StorageAccount": "your-storage-account",
+  "VariableActionName": "Initialize_variables",
+  "CorrelationIdVariableName": "correlationId",
+  "LoadRunsSinceMinutes": "-10",
+  "PollIntervalSeconds": "3",
+  "BlobStorageApiVersion": "2023-11-03",
+  "MaxRetries": "5"
+}
+```
+
+---
+
+## Known Limitations
+
+### Framework Always Reflects Your Current Deployment
+
+The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
+
+---
+
+### Stateless Workflows Are Not Supported
+
+This framework relies on the Azure Management REST API's **run history** endpoint to poll for completed workflow runs and navigate their action trees. **Stateless workflows do not persist run history by default**, so the Management API returns no run records for them. As a result, the polling loop will time out and no action assertions can be made.
+
+**Workaround:** Even though I have not tested it myself, you could use the following workaround. Enable run history for stateless workflows by setting `OperationOptions` to `WithStatelessRunHistory` in your Logic Apps Standard host configuration:
+
+```json
+{
+  "extensions": {
+    "workflow": {
+      "settings": {
+        "Runtime.FlowRetentionThreshold": "7.00:00:00",
+        "Runtime.Backend.FlowRunRetentionPeriod": "7.00:00:00"
+      }
+    }
+  }
+}
+```
+
+Or toggle it per-workflow in the designer under **Settings → General → Enable run history**. Once run history is enabled for a stateless workflow it behaves identically to a stateful workflow from this framework's perspective.
 
 ---
 
@@ -377,7 +445,7 @@ There are two patterns depending on how the downstream system is called.
 
 When calling a backend through Azure API Management, pass `IsMockEnabled` as a custom request header. The API Management policy inspects the header and returns a mocked response when it is `True`, bypassing the real backend call entirely.
 
-![Logic App action passing MockingEnabled header to API Management](extras/ismockenabled-api-header.png)
+![Logic App action passing MockingEnabled header to API Management](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/ismockenabled-api-header.png)
 
 The corresponding API Management inbound policy:
 
@@ -414,7 +482,7 @@ The corresponding API Management inbound policy:
 
 When calling a system that does not support passing a custom header  -  for example SFTP, FTP, or a direct database connector  -  use a **Condition** action in the workflow itself. The `True` branch skips the actual action; the `False` branch executes it normally.
 
-![Logic App condition checking IsMockEnabled](extras/ismockenabled-condition.png)
+![Logic App condition checking IsMockEnabled](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/ismockenabled-condition.png)
 
 The condition expression evaluates `bool(parameters('IsMockEnabled'))` against `true`. When mocking is enabled, the `True` branch contains a no-op action (or nothing at all). This ensures the real connector action is never executed during test runs, so no test data reaches the target system.
 
@@ -560,11 +628,11 @@ Always disable mocking after the test run, regardless of whether the tests passe
 
 A complete Azure DevOps pipeline that incorporates deployment and integration testing typically looks like this, with a dedicated stage per environment:
 
-![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](extras/pipeline-run.png)
+![Azure DevOps pipeline showing Build, Development, Test, Acceptance and Production stages with 100% tests passed on Dev and Test](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run.png)
 
-![Stage with enable and disable mocking. In between the tests run](extras/pipeline-run-2.png)
+![Stage with enable and disable mocking. In between the tests run](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run-2.png)
 
-![In the Tests section of the pipeline the integration tests are being shown](extras/pipeline-run-3.png)
+![In the Tests section of the pipeline the integration tests are being shown](https://raw.githubusercontent.com/sahinozd/LogicAppsStandard.Testing/main/extras/pipeline-run-3.png)
 
 The environment stages Development and Test follow the same sequence of jobs:
 
@@ -989,7 +1057,7 @@ await ServiceBusMessageSender.SendAsync("sbt-sourcesystem-out", sbMessage, prope
 
 The Gherkin layer is built on [Reqnroll](https://reqnroll.net/) and exposes a rich set of step definitions that cover all common Logic Apps Standard testing scenarios. Tests are written in `.feature` files and bound to step definitions through Reqnroll's standard discovery mechanism.
 
-A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](TESTING_GUIDE.md).
+A full reference of all available steps, path syntax, and testing patterns is available in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
 
 ### Receive-Process-Send Chain Validation
 
@@ -1233,51 +1301,10 @@ Recurrence (trigger)
 └── Catch (Scope)
 ```
 
-This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in `TESTING_GUIDE.md`.
+This workflow is the direct source for the integration test scenarios in `Foreach-Until-SampleStepDefinition.feature` and for all path navigation examples in [TESTING_GUIDE.md](https://github.com/sahinozd/LogicAppsStandard.Testing/blob/main/TESTING_GUIDE.md).
 
 ---
 
-## Unit Test Coverage
+## ☕ Support
 
-The framework is fully covered by unit tests across three test projects.
-
-**`LogicApps.Management.Tests`** covers the core object model:
-
-- `LogicApp`  -  factory creation, workflow enumeration, and initialisation
-- `Workflow`  -  run loading, trigger retrieval, and reload behaviour
-- `WorkflowRun`  -  action loading, trigger loading, correlation ID resolution, depth-first search via `FindActionByNameAsync`, and `Reload`
-- `WorkflowRunTrigger`  -  property mapping from API payloads and input/output loading
-- `WorkflowTrigger`  -  trigger URL construction, recurrence vs HTTP trigger routing, and `Run` execution
-- `WorkflowTriggerExecutionResponse`  -  response status and content handling
-- `BaseAction`  -  property mapping, input/output link resolution, and repetition count handling
-- `Action`  -  standard connector action construction
-- `ScopeAction`  -  child action collection population
-- `ConditionAction`  -  true (`DefaultActions`) and false (`ElseActions`) branch population
-- `SwitchAction`  -  case collection population
-- `SwitchCase`  -  case name and actions population
-- `ForEachAction`  -  repetition retrieval via `GetAllActionRepetitions`
-- `ForEachActionRepetition`  -  property mapping and repetition index handling
-- `UntilAction`  -  repetition retrieval via `GetAllActionRepetitions`
-- `UntilActionRepetition`  -  property mapping and iteration count handling
-- `ActionFactory`  -  action creation from workflow definition JSON for all supported action types
-- `ActionHelper`  -  linked input/output content resolution
-
-**`LogicApps.Management.Repository.Tests`** covers the infrastructure layer:
-
-- `AzureHttpClient`  -  HTTP client construction and authenticated request dispatch
-- `AzureManagementRepository`  -  GET, POST, and paged response handling
-- `EntraTokenClient`  -  token acquisition and caching
-- `ServiceBusMessageBuilder`  -  claim-check message construction, correlation ID embedding, and custom property attachment
-- `ServiceBusMessageSender`  -  message dispatch to topics and queues
-- `BlobRequestBuilder`  -  blob upload request construction
-- `BlobStorageSender`  -  blob upload dispatch
-
-**`LogicApps.TestFramework.Specifications.Tests`** covers the Gherkin layer:
-
-- `WorkflowRunValidation`  -  all validation methods including loop iteration count, actions in all iterations, actions in a specific iteration, nested loop validation, scope and branch child action validation, and single action status validation
-- `WorkflowRunNavigator`  -  depth-first action search, scope navigation, condition branch retrieval (true and false), switch case retrieval, ForEach and Until iteration access, and nested loop discovery
-- `ActionPathNavigator`  -  the full path syntax parser including simple names, iteration indices, condition `.actions` and `.else` branches, switch cases, nested paths, case-insensitive matching, and invalid path handling
-- `ClassHelper`  -  nested property setting with dot-notation paths, automatic instance creation for null intermediate objects, type conversion, nullable type handling, and list indexer support
-- `StringHelper` and `FileNameResolver`  -  string null normalisation and filename placeholder resolution
-
-All three test projects run entirely in memory against in-process mock data and do not require any Azure connectivity. They can be executed in a standard `dotnet test` step with no additional setup.
+If you find this project useful, consider [buying me a coffee](https://ko-fi.com/sahinozd) — it helps keep the project maintained.

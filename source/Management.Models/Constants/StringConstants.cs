@@ -2,25 +2,29 @@
 
 public static class StringConstants
 {
-    public static string SubscriptionId => "SubscriptionId";
+    public const string SubscriptionId = "SubscriptionId";
 
-    public static string ResourceGroup => "ResourceGroup";
+    public const string ResourceGroup = "ResourceGroup";
 
-    public static string LogicAppName => "LogicAppName";
+    public const string LogicAppName = "LogicAppName";
 
-    public static string LogicAppApiVersion => "LogicAppApiVersion";
+    public const string LogicAppApiVersion = "LogicAppApiVersion";
 
-    public static string ClientTrackingIdHeader => "x-ms-client-tracking-id";
+    public const string ClientTrackingIdHeader = "x-ms-client-tracking-id";
 
-    public static string RequestIdHeader => "x-ms-request-id";
+    public const string RequestIdHeader = "x-ms-request-id";
 
-    public static string TrackingIdHeader => "x-ms-tracking-id";
+    public const string TrackingIdHeader = "x-ms-tracking-id";
 
-    public static string TriggerHistoryNameHeader => "x-ms-trigger-history-name";
+    public const string TriggerHistoryNameHeader = "x-ms-trigger-history-name";
 
-    public static string WorkflowRunIdHeader => "x-ms-workflow-run-id";
+    public const string WorkflowRunIdHeader = "x-ms-workflow-run-id";
 
-    public static string WorkflowNameHeader => "x-ms-workflow-name";
+    public const string WorkflowNameHeader = "x-ms-workflow-name";
 
-    public static string WorkflowVersionHeader => "x-ms-workflow-version";
+    public const string WorkflowVersionHeader = "x-ms-workflow-version";
+
+    public const string BlobStorageApiVersion = "BlobStorageApiVersion";
+
+    public const string MaxRetries = "MaxRetries";
 }

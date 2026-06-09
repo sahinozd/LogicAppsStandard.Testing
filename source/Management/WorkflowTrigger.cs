@@ -8,7 +8,7 @@ namespace LogicApps.Management;
 /// <summary>
 /// Represents trigger configuration and metadata for a Logic App workflow. Provides methods to construct trigger URLs and execute the trigger.
 /// </summary>
-public sealed class WorkflowTrigger
+public sealed class WorkflowTrigger : IWorkflowTrigger
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -19,13 +19,13 @@ public sealed class WorkflowTrigger
 
     public DateTime? CreatedTime { get; private set; }
 
-    public string? DesignerName { get; set; }
+    public string? DesignerName { get; private set; }
 
-    public string? Id { get; set; }
+    public string? Id { get; private set; }
 
     public string? LastExecutionTime { get; private set; }
 
-    public string? Name { get; set; }
+    public string? Name { get; private set; }
 
     public string? NextExecutionTime { get; private set; }
 
@@ -37,7 +37,7 @@ public sealed class WorkflowTrigger
 
     public Uri? TriggerUrl { get; private set; }
 
-    public string? Type { get; set; }
+    public string? Type { get; private set; }
 
     private WorkflowTrigger(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
     {
@@ -53,10 +53,10 @@ public sealed class WorkflowTrigger
     /// <param name="azureManagementRepository">Azure management repository used to query trigger details.</param>
     /// <param name="workflowName">Workflow name.</param>
     /// <returns>Initialized <see cref="WorkflowTrigger"/> instance.</returns>
-    public static Task<WorkflowTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
+    public static async Task<IWorkflowTrigger> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, string workflowName)
     {
-        var ret = new WorkflowTrigger(configuration, azureManagementRepository, workflowName);
-        return ret.InitializeAsync();
+        var workflowTrigger = new WorkflowTrigger(configuration, azureManagementRepository, workflowName);
+        return await workflowTrigger.InitializeAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ public sealed class WorkflowTrigger
     /// <param name="content">Optional request content to post to the trigger endpoint.</param>
     /// <param name="requestHeaders">Optional headers for the request.</param>
     /// <returns>Execution response wrapped in a <see cref="WorkflowTriggerExecutionResponse"/>.</returns>
-    public async Task<WorkflowTriggerExecutionResponse> Run(HttpContent? content, Dictionary<string, string>? requestHeaders = null)
+    public async Task<WorkflowTriggerExecutionResponse> RunAsync(HttpContent? content, Dictionary<string, string>? requestHeaders = null)
     {
         HttpResponseMessage? response;
 

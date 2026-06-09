@@ -50,6 +50,7 @@ permissions:
 env:
   DOTNET_VERSION: '10.x'
   SOLUTION_PATH: 'LogicAppStandardManagementFramework.slnx'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MODELS_PROJECT: 'source/Management.Models/LogicApps.Management.Models.csproj'
   REPOSITORY_PROJECT: 'source/Management.Repository/LogicApps.Management.Repository.csproj'
   MANAGEMENT_PROJECT: 'source/Management/LogicApps.Management.csproj'
@@ -68,6 +69,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0           # full history required for TruffleHog diff scan
+
+      # Scan every commit in this push/PR for secrets (API keys, connection strings,
+      # client secrets, SAS tokens, etc.) before any build or test runs.
+      # On a PR it scans only the commits in the PR; on a direct push it scans the pushed range.
+      # The step fails the workflow if any verified or unverified secret is detected.
+      - name: Secret scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          # --only-verified is a presence flag; omitting it reports both verified AND unverified secrets
 
       - name: Install .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v5
@@ -164,13 +178,13 @@ jobs:
         continue-on-error: true
 
       - name: Upload site for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/main' && always()
         with:
           path: ./site
 
       - name: Deploy site to GitHub Pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         if: github.ref == 'refs/heads/main' && always()
         id: pages-deployment
 
@@ -278,6 +292,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ steps.version.outputs.packageVersion }}"
+          generate_release_notes: true
           body: |
             ## NuGet Packages - v${{ steps.version.outputs.packageVersion }}
 

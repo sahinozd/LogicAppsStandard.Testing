@@ -12,7 +12,7 @@ namespace LogicApps.Management;
 /// <summary>
 /// Represents a single run of a Logic App workflow and provides methods to load actions and trigger information.
 /// </summary>
-public sealed class WorkflowRun
+public sealed class WorkflowRun : IWorkflowRun
 {
     private readonly IConfiguration _configuration;
     private readonly IAzureManagementRepository _azureManagementRepository;
@@ -24,15 +24,14 @@ public sealed class WorkflowRun
     private readonly string _workflowName;
 
     private List<BaseAction>? _actions;
-    private WorkflowRunTrigger? _trigger;
-    private string? _correlationId;
+    private IWorkflowRunTrigger? _trigger;
 
     private readonly string _variableActionName;
     private readonly string _correlationIdVariableName;
 
     public string? ClientTrackingId { get; private set; }
 
-    public string? CorrelationId => _correlationId;
+    public string? CorrelationId { get; private set; }
 
     public string? EndTime { get; private set; }
 
@@ -47,6 +46,8 @@ public sealed class WorkflowRun
     public string? Type { get; private set; }
 
     public string? WaitEndTime { get; private set; }
+
+    public Error? RunError { get; private set; }
 
     private WorkflowRun(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
     {
@@ -66,15 +67,15 @@ public sealed class WorkflowRun
     /// Get all actions declared in the workflow definition for this run and populate runtime details for each action.
     /// Results are cached for subsequent calls.
     /// </summary>
-    /// <returns>List of <see cref="BaseAction"/> instances representing the run's actions.</returns>
-    public async Task<List<BaseAction>> GetWorkflowRunActionsAsync()
+    /// <returns>Read-only list of <see cref="BaseAction"/> instances representing the run's actions.</returns>
+    public async Task<IReadOnlyList<BaseAction>> GetWorkflowRunActionsAsync(CancellationToken cancellationToken = default)
     {
         if (_actions is { Count: > 0 })
         {
             return _actions;
         }
 
-        _actions = await BuildActionListFromWorkflowDefinition().ConfigureAwait(false);
+        _actions = await BuildActionListFromWorkflowDefinition(cancellationToken).ConfigureAwait(false);
         // Sort the children on start time
         _actions = [.. _actions.OrderBy(c => c.StartTime)];
 
@@ -85,14 +86,16 @@ public sealed class WorkflowRun
     /// Get the trigger metadata for this workflow run, loading it from the management API on first access.
     /// </summary>
     /// <returns>The <see cref="WorkflowRunTrigger"/> instance or null if not present.</returns>
-    public async Task<WorkflowRunTrigger?> GetWorkflowRunTriggerAsync()
+    public async Task<IWorkflowRunTrigger?> GetWorkflowRunTriggerAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (_trigger != null)
         {
             return _trigger;
         }
-        
-        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!).ConfigureAwait(false);
+
+        _trigger = await WorkflowRunTrigger.CreateAsync(_configuration, _azureManagementRepository, _actionHelper, _workflowName, Name!, cancellationToken).ConfigureAwait(false);
         return _trigger;
     }
 
@@ -100,13 +103,13 @@ public sealed class WorkflowRun
     /// Reload actions and trigger information for this run by clearing cached values and re-fetching from the API.
     /// </summary>
     /// <returns>A task that represents the asynchronous reload operation.</returns>
-    public async Task Reload()
+    public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         _trigger = null;
         _actions = null;
 
-        await GetWorkflowRunActionsAsync().ConfigureAwait(false);
-        await GetWorkflowRunTriggerAsync().ConfigureAwait(false);
+        await GetWorkflowRunActionsAsync(cancellationToken).ConfigureAwait(false);
+        await GetWorkflowRunTriggerAsync(cancellationToken).ConfigureAwait(false);
     }
    
     /// <summary>
@@ -122,10 +125,10 @@ public sealed class WorkflowRun
     /// <param name="workflowDefinition">The JSON object representing the workflow definition.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the initialized workflow run
     /// instance.</returns>
-    public static Task<WorkflowRun> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
+    public static async Task<IWorkflowRun> CreateAsync(IConfiguration configuration, IAzureManagementRepository azureManagementRepository, IActionFactory actionFactory, IActionHelper actionHelper, string workflowName, Models.RestApi.WorkflowRun workflowRunProperties, JObject workflowDefinition)
     {
-        var ret = new WorkflowRun(configuration, azureManagementRepository, actionFactory, actionHelper, workflowName, workflowRunProperties, workflowDefinition);
-        return ret.InitializeAsync();
+        var workflowRun = new WorkflowRun(configuration, azureManagementRepository, actionFactory, actionHelper, workflowName, workflowRunProperties, workflowDefinition);
+        return await workflowRun.InitializeAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -134,10 +137,14 @@ public sealed class WorkflowRun
     /// Returns null if no matching action exists.
     /// </summary>
     /// <param name="name">Name of the action to locate. If null or empty the method returns null.</param>
+    /// <param name="cancellationToken"></param>
     /// <returns>The matching <see cref="BaseAction"/>, or null if not found.</returns>
-    public async Task<List<BaseAction>?> FindActionByNameAsync(string name)
+    public async Task<IReadOnlyList<BaseAction>?> FindActionByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(name)) return null;
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
 
         // We use SelectMany(Traverse) to lazily flatten the tree of actions
         // into a single enumerable. This avoids allocating an intermediate
@@ -146,7 +153,7 @@ public sealed class WorkflowRun
 
         if(_actions == null)
         {
-            await GetWorkflowRunActionsAsync().ConfigureAwait(false);
+            await GetWorkflowRunActionsAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return _actions?
@@ -171,8 +178,9 @@ public sealed class WorkflowRun
     /// Parse the workflow definition to construct the action model and load details for each action using the action factory.
     /// </summary>
     /// <remarks>Internal helper used by <see cref="GetWorkflowRunActionsAsync"/>.</remarks>
-    private async Task<List<BaseAction>> BuildActionListFromWorkflowDefinition()
+    private async Task<List<BaseAction>> BuildActionListFromWorkflowDefinition(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         List<BaseAction> workflowRunActions = [];
 
         // The factory needs the workflow name and run id in order to retrieve metadata for the actions, so we set these properties before creating actions.
@@ -219,7 +227,7 @@ public sealed class WorkflowRun
                 .SelectTokens($"$..[?(@.name == '{_correlationIdVariableName}')]")
                 .FirstOrDefault();
 
-            _correlationId = match?["value"]?.ToString();
+            CorrelationId = match?["value"]?.ToString();
         }
     }
 
@@ -237,10 +245,22 @@ public sealed class WorkflowRun
         StartTime = _workflowRunProperties.Properties?.StartTime;
         Status = _workflowRunProperties.Properties?.Status;
         WaitEndTime = _workflowRunProperties.Properties?.WaitEndTime;
+
+        var errorCode = _workflowRunProperties.Properties?.Error?.Code;
+        var errorMessage = _workflowRunProperties.Properties?.Error?.Message;
+
+        if (!string.IsNullOrEmpty(errorCode) || !string.IsNullOrEmpty(errorMessage))
+        {
+            RunError = new Error
+            {
+                Code = errorCode,
+                Message = errorMessage
+            };
+        }
     }
 
     /// <summary>
-    /// Recursively traverse an action and yield the action itself followed by all actions nested under it.
+    /// Recursively traverse an action
     /// Implemented as an iterator method using <c>yield return</c> so callers can enumerate the flattened sequence of actions lazily.
     /// </summary>
     /// <param name="action">Action to traverse. If null, the sequence is empty.</param>
@@ -248,7 +268,10 @@ public sealed class WorkflowRun
     private static IEnumerable<BaseAction> Traverse(BaseAction? action)
     {
         // If the provided action is null there is nothing to traverse.
-        if (action is null) yield break;
+        if (action is null)
+        {
+            yield break;
+        }
 
         // Yield the current action first. This implements a pre-order traversal: the parent is returned before its children.
         // Consumers of this iterator will therefore see the top-level action before any nested actions.
