@@ -10,9 +10,9 @@ A .NET testing framework for **Azure Logic Apps Standard**
 
 1. [What This Framework Does](#what-this-framework-does)
 2. [How It Compares to Microsoft's Built-In Testing Options](#how-it-compares-to-microsofts-built-in-testing-options)
-3. [Installing the Packages](#installing-the-packages)
-4. [Prerequisites and Configuration](#prerequisites-and-configuration)
-5. [Known Limitations](#known-limitations)
+3. [Known Limitations](#known-limitations)
+4. [Installing the Packages](#installing-the-packages)
+5. [Prerequisites and Configuration](#prerequisites-and-configuration)
 6. [IsMockEnabled  -  Putting an Environment Under Test](#ismockenabled--putting-an-environment-under-test)
 7. [Using the Management Framework Directly in .NET](#using-the-management-framework-directly-in-net)
 8. [Sending Messages to Azure Service Bus](#sending-messages-to-azure-service-bus)
@@ -100,6 +100,47 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
 
 **Bottom line:** Microsoft's tools are useful during development, locally, in VS Code. This framework is what you use after deployment, in your pipeline, to verify that the integration works end to end in a real environment.
+
+---
+
+## Known Limitations
+
+### HTTP and Recurrence trigger
+
+Currently this framework only works with the HTTP and Recurrence trigger. Optionally, Service Bus and Storage Blob are supported, by using the built-in senders to put messages or blobs on the queue which will trigger the workflow.
+
+Other triggers currently can't return mocked values or be triggered with a payload. That limits the options to test them automatically from a deployment pipeline.
+
+A workaround would be duplicating the workflow, keeping the logic the same, but replacing the trigger with a http trigger. Not ideal but it's an option to work around the problem.
+
+---
+
+### Framework Always Reflects Your Current Deployment
+
+The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
+
+---
+
+### Stateless Workflows Are Not Supported
+
+This framework relies on the Azure Management REST API's **run history** endpoint to poll for completed workflow runs and navigate their action trees. **Stateless workflows do not persist run history by default**, so the Management API returns no run records for them. As a result, the polling loop will time out and no action assertions can be made.
+
+**Workaround:** Even though I have not tested it myself, you could use the following workaround. Enable run history for stateless workflows by setting `OperationOptions` to `WithStatelessRunHistory` in your Logic Apps Standard host configuration:
+
+```json
+{
+  "extensions": {
+    "workflow": {
+      "settings": {
+        "Runtime.FlowRetentionThreshold": "7.00:00:00",
+        "Runtime.Backend.FlowRunRetentionPeriod": "7.00:00:00"
+      }
+    }
+  }
+}
+```
+
+Or toggle it per-workflow in the designer under **Settings → General → Enable run history**. Once run history is enabled for a stateless workflow it behaves identically to a stateful workflow from this framework's perspective.
 
 ---
 
@@ -325,47 +366,6 @@ A typical local file looks like:
   "MaxRetries": "5"
 }
 ```
-
----
-
-## Known Limitations
-
-### HTTP and Recurrence trigger
-
-Currently this framework only works with the HTTP and Recurrence trigger. Optionally, Service Bus and Storage Blob are supported, by using the built-in senders to put messages or blobs on the queue which will trigger the workflow.
-
-Other triggers currently can't return mocked values or be triggered with a payload. That limits the options to test them automatically from a deployment pipeline.
-
-A workaround would be duplicating the workflow, keeping the logic the same, but replacing the trigger with a http trigger. Not ideal but it's an option to work around the problem.
-
----
-
-### Framework Always Reflects Your Current Deployment
-
-The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
-
----
-
-### Stateless Workflows Are Not Supported
-
-This framework relies on the Azure Management REST API's **run history** endpoint to poll for completed workflow runs and navigate their action trees. **Stateless workflows do not persist run history by default**, so the Management API returns no run records for them. As a result, the polling loop will time out and no action assertions can be made.
-
-**Workaround:** Even though I have not tested it myself, you could use the following workaround. Enable run history for stateless workflows by setting `OperationOptions` to `WithStatelessRunHistory` in your Logic Apps Standard host configuration:
-
-```json
-{
-  "extensions": {
-    "workflow": {
-      "settings": {
-        "Runtime.FlowRetentionThreshold": "7.00:00:00",
-        "Runtime.Backend.FlowRunRetentionPeriod": "7.00:00:00"
-      }
-    }
-  }
-}
-```
-
-Or toggle it per-workflow in the designer under **Settings → General → Enable run history**. Once run history is enabled for a stateless workflow it behaves identically to a stateful workflow from this framework's perspective.
 
 ---
 
