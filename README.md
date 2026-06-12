@@ -330,6 +330,16 @@ A typical local file looks like:
 
 ## Known Limitations
 
+### HTTP and Recurrence trigger
+
+Currently this framework only works with the HTTP and Recurrence trigger. Optionally, Service Bus and Storage Blob are supported, by using the built-in senders to put messages or blobs on the queue which will trigger the workflow.
+
+Other triggers currently can't return mocked values or be triggered with a payload. That limits the options to test them automatically from a deployment pipeline.
+
+A workaround would be duplicating the workflow, keeping the logic the same, but replacing the trigger with a http trigger. Not ideal but it's an option to work around the problem.
+
+---
+
 ### Framework Always Reflects Your Current Deployment
 
 The framework retrieves workflow definitions directly from the Azure Management REST API at runtime. This means the action tree, run statuses, and all values the framework exposes always correspond to the version of the workflow that is currently deployed to your Logic Apps Standard resource. There is no local definition file to keep in sync; if you deploy a new version of a workflow, the framework picks it up automatically on the next test run.
