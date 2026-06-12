@@ -132,46 +132,46 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line 11
     await testRunner.GivenAsync("A message with a data from the source system", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-                global::Reqnroll.Table table33 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table45 = new global::Reqnroll.Table(new string[] {
                             "Field",
                             "Value"});
-                table33.AddRow(new string[] {
+                table45.AddRow(new string[] {
                             "Value",
                             "Open Sesame"});
-                table33.AddRow(new string[] {
+                table45.AddRow(new string[] {
                             "OnClick",
                             "OpenMagicGate()"});
 #line 12
-    await testRunner.AndAsync("It has the following source data:", ((string)(null)), table33, "And ");
+    await testRunner.AndAsync("It has the following source data:", ((string)(null)), table45, "And ");
 #line hidden
 #line 16
  await testRunner.WhenAsync("The message payload is put in Storage Account container \"demoworkload\" with file " +
                         "name \"rcv-source-data.json\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table34 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table46 = new global::Reqnroll.Table(new string[] {
                             "Field",
                             "Value"});
-                table34.AddRow(new string[] {
+                table46.AddRow(new string[] {
                             "sender",
                             "sendingWorkflowName"});
-                table34.AddRow(new string[] {
+                table46.AddRow(new string[] {
                             "messageType",
                             "demoMessageType"});
-                table34.AddRow(new string[] {
+                table46.AddRow(new string[] {
                             "someProperty",
                             "someValue"});
 #line 17
  await testRunner.AndAsync("The claim-check is put on Service Bus topic \"sbt-sourcesystem-out\" with propertie" +
-                        "s:", ((string)(null)), table34, "And ");
+                        "s:", ((string)(null)), table46, "And ");
 #line hidden
-                global::Reqnroll.Table table35 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table47 = new global::Reqnroll.Table(new string[] {
                             "StepName",
                             "Status"});
-                table35.AddRow(new string[] {
+                table47.AddRow(new string[] {
                             "Transform source data type to target data type",
                             "Succeeded"});
 #line 22
- await testRunner.ThenAsync("The workflow \"prc\" executed these actions:", ((string)(null)), table35, "Then ");
+ await testRunner.ThenAsync("The workflow \"prc\" executed these actions:", ((string)(null)), table47, "Then ");
 #line hidden
 #line 25
  await testRunner.AndAsync("Workflow step \"Transform source data type to target data type\" has transformed th" +
@@ -217,30 +217,30 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
  await testRunner.WhenAsync("The message payload is put in Storage Account container \"demoworkload\" with file " +
                         "name \"rcv-source-data.json\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table36 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table48 = new global::Reqnroll.Table(new string[] {
                             "Field",
                             "Value"});
-                table36.AddRow(new string[] {
+                table48.AddRow(new string[] {
                             "sender",
                             "sendingWorkflowName"});
-                table36.AddRow(new string[] {
+                table48.AddRow(new string[] {
                             "messageType",
                             "demoMessageType"});
-                table36.AddRow(new string[] {
+                table48.AddRow(new string[] {
                             "someProperty",
                             "someValue"});
 #line 35
  await testRunner.AndAsync("The claim-check is put on Service Bus topic \"sbt-sourcesystem-out\" with propertie" +
-                        "s:", ((string)(null)), table36, "And ");
+                        "s:", ((string)(null)), table48, "And ");
 #line hidden
-                global::Reqnroll.Table table37 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table49 = new global::Reqnroll.Table(new string[] {
                             "StepName",
                             "Status"});
-                table37.AddRow(new string[] {
+                table49.AddRow(new string[] {
                             "Transform source data type to target data type",
                             "Succeeded"});
 #line 40
- await testRunner.ThenAsync("The workflow \"prc\" executed these actions:", ((string)(null)), table37, "Then ");
+ await testRunner.ThenAsync("The workflow \"prc\" executed these actions:", ((string)(null)), table49, "Then ");
 #line hidden
 #line 43
  await testRunner.AndAsync("Workflow step \"Transform source data type to target data type\" has transformed th" +
