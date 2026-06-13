@@ -31,7 +31,13 @@ Azure Logic Apps Standard provides no first-class .NET API for interacting with 
 
 ### The Solution
 
-This framework delivers two things:
+This framework provides a structured approach for validating Logic Apps Standard workflows in deployed Azure environments.
+
+It focuses on workflow validation, transformation testing, orchestration validation, and integration testing scenarios that can be automated as part of a CI/CD pipeline.
+
+The framework is not intended to be a generic Production Verification Testing (PVT) framework for every possible integration scenario. Assertions against external systems, validation of business outcomes, and cleanup of downstream side effects remain scenario-specific concerns that should be addressed as part of an overall testing strategy.
+
+The solution consists of two complementary parts:
 
 ---
 
@@ -56,7 +62,7 @@ This means that from C#, reading a run's data looks like navigating an object gr
 
 ### 2. The Specifications Layer  -  Gherkin-Based Acceptance Testing
 
-The `LogicApps.TestFramework.Specifications` library wraps the Management library in a full set of Reqnroll step definitions, enabling business-readable Gherkin scenarios that test complete workflow chains end-to-end.
+The `LogicApps.TestFramework.Specifications` library wraps the Management library in a full set of Reqnroll step definitions, enabling business-readable Gherkin scenarios that validate workflow behaviour across one or more deployed Logic Apps workflows.
 
 **What this enables:**
 
@@ -74,8 +80,9 @@ For transformation testing specifically, the framework provides `BaseTransformat
 
 ## How It Compares to Microsoft's Built-In Testing Options
 
-Microsoft provides several tools for testing Logic Apps Standard. This framework takes a fundamentally different approach and addresses gaps that none of the Microsoft tools cover.
+Microsoft provides several tools for testing Logic Apps Standard. This framework takes a different approach by focusing on deployed workflow validation and CI/CD-driven integration testing scenarios.
 
+It complements Microsoft's existing tooling rather than replacing it.
 | Microsoft Offering | Scope | Limitation |
 |---|---|---|
 | **Built-in Automated Test Framework** | Visual Studio Code extension | Requires manual test case creation in VS Code, no programmatic API, no CI/CD integration without custom scripting, limited assertion capability |
@@ -87,31 +94,59 @@ Microsoft provides several tools for testing Logic Apps Standard. This framework
 
 **Where this framework is different:**
 
-1. **It runs against the real deployed environment.** Not local emulation, not mocked connectors. The workflow runs in Azure, against the real infrastructure  -  Service Bus, Storage Account, API Management, and downstream systems. You are testing what is actually deployed.
+1. **It runs against deployed Azure environments.**
+   Rather than executing workflows locally, tests run against the Logic Apps instance that was deployed through your pipeline. This allows you to validate the deployed implementation instead of a local copy. Depending on the scenario, external dependencies can either be exercised directly or isolated through mocking.
 
-2. **It is designed for your DevOps pipeline.** Every scenario is a NUnit test that produces a standard pass/fail result. Drop the test project into your Azure DevOps or GitHub Actions pipeline after the deployment step. If the tests pass, the deployment is verified. If they fail, the pipeline stops.
+2. **It is designed for your DevOps pipeline.**
+   Every scenario is a NUnit test that produces a standard pass/fail result. Drop the test project into your Azure DevOps or GitHub Actions pipeline after the deployment step. If the tests pass, the deployment is verified. If they fail, the pipeline stops.
 
-3. **It provides a proper object model.** The Microsoft SDK does not give you a navigable object graph of a live workflow run. This framework does. Finding an action at any nesting depth, reading its output, checking its status  -  these are single method calls on strongly typed objects.
+3. **It provides a proper object model.**
+   The Microsoft SDK does not give you a navigable object graph of a workflow run. This framework does. Finding an action at any nesting depth, reading its output, checking its status, and inspecting tracked properties are all simple operations on strongly typed objects.
 
-4. **It supports real end-to-end chain validation.** Testing a receive-process-send chain across three workflows, where the processor has five correlated instances each with nested loops and condition branches, is expressed in a single readable Gherkin scenario. No Microsoft tool handles this.
+4. **It supports validation of multi-workflow integration chains.**
+   Testing correlated workflow executions across multiple workflows, including nested loops, conditions, and orchestration patterns, can be expressed in a single readable Gherkin scenario.
 
-5. **It enables transformation testing against live data.** You can trigger a real transformation workflow with a real message, wait for it to complete, deserialise the XSLT or Liquid output into a typed C# model, and assert on individual fields  -  in a single test scenario. This is not possible with any Microsoft-provided tool.
+5. **It enables transformation testing in deployed environments.**
+   You can trigger transformation workflows, inspect outputs, deserialize XSLT or Liquid results into strongly typed C# models, and perform field-level assertions in a single test scenario.
 
-6. **It supports mocking for isolated integration testing.** By leveraging the `IsMockEnabled` feature described below, you can put source and target systems into a mocked state during test runs. This means you can test the full workflow behaviour  -  including send actions to SFTP servers, calls to APIs through API Management  -  without polluting production or staging systems. The Microsoft tooling does not provide a mechanism for this in a deployed environment.
+6. **It supports controlled isolation through mocking.**
+   By leveraging the `IsMockEnabled` pattern described below, source and target systems can be excluded from specific test scenarios while still validating workflow behaviour, routing, transformations, error handling, and execution paths.
 
-**Bottom line:** Microsoft's tools are useful during development, locally, in VS Code. This framework is what you use after deployment, in your pipeline, to verify that the integration works end to end in a real environment.
+**Bottom line:** Microsoft's tools are valuable during development in VS Code. This framework complements those tools by helping validate deployed Logic App workflows as part of a CI/CD pipeline.
+
+---
+
+## Scope
+
+This framework focuses on validating Logic Apps Standard workflow behaviour in deployed Azure environments.
+
+It is particularly suited for scenarios where workflow execution can be initiated directly, such as:
+
+- HTTP-triggered workflows
+- Recurrence-triggered workflows
+- Service Bus-driven integrations
+- Storage-based integrations
+- Multi-workflow orchestration patterns
+
+The framework supports both integration testing against deployed environments and isolated testing through controlled mocking.
+
+Assertions against external systems, validation of business outcomes, and cleanup of side effects in connected systems remain scenario-specific concerns and are intentionally left outside the scope of the framework itself.
+
+The goal of the framework is to provide a structured and reusable way to validate workflow execution, workflow state, transformations, correlations, and orchestration behaviour as part of an automated delivery pipeline.
 
 ---
 
 ## Known Limitations
 
-### HTTP and Recurrence trigger
+### Trigger Support
 
-Currently this framework only works with the HTTP and Recurrence trigger. Optionally, Service Bus and Storage Blob are supported, by using the built-in senders to put messages or blobs on the queue which will trigger the workflow.
+Currently the framework can directly initiate workflows that expose an HTTP trigger, a Recurrence trigger, or patterns where messages and files can be submitted through the built-in Service Bus and Storage helpers.
 
-Other triggers currently can't return mocked values or be triggered with a payload. That limits the options to test them automatically from a deployment pipeline.
+Workflows that depend on external-system triggers (for example Dataverse, Dynamics, Salesforce, SAP, SharePoint, or other managed connector triggers) cannot currently be initiated directly by the framework. Those scenarios require workflow-specific testing strategies or adaptations.
 
-A workaround would be duplicating the workflow, keeping the logic the same, but replacing the trigger with a http trigger. Not ideal but it's an option to work around the problem.
+This limitation exists because these triggers do not currently support supplying a payload directly or returning mocked trigger results through the Logic Apps runtime.
+
+A possible workaround is to expose the workflow logic through an HTTP-triggered variant that is used specifically for testing purposes while keeping the business logic identical.
 
 ---
 
@@ -383,7 +418,7 @@ A Logic Apps Standard workflow parameter `IsMockEnabled` (boolean) is read at ru
 - **Send workflows**: a condition on `IsMockEnabled` skips the actual SFTP write, HTTP call, or queue send and instead routes to a no-op branch.
 - **Receive workflows**: a mocked trigger payload can be substituted when the flag is set.
 
-This means your integration tests can exercise the full workflow logic  -  transformation, routing, error handling, tracked properties  -  without any data reaching source or target systems. The test environment is fully isolated from an external perspective, but the workflow runs exactly as it would in production from an internal perspective.
+This means your integration tests can exercise workflow logic, routing, transformations, error handling, tracked properties, and orchestration behaviour without external side effects reaching source or target systems.
 
 ### Configuration
 
