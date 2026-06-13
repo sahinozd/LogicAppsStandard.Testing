@@ -31,8 +31,6 @@ Azure Logic Apps Standard provides no first-class .NET API for interacting with 
 
 ### The Solution
 
-### The Solution
-
 This framework provides a structured approach for validating Logic Apps Standard workflows in deployed Azure environments.
 
 It focuses on workflow validation, transformation testing, orchestration validation, and integration testing scenarios that can be automated as part of a CI/CD pipeline.
