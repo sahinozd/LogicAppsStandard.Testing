@@ -205,7 +205,7 @@ public abstract class BaseStepDefinition : IDisposable
     {
         CurrentWorkflowName = workflowName;
 
-        var filePath = $"TestData\\{filename}";
+        var filePath = Path.Combine("TestData", filename);
 
         Assert.That(File.Exists(filePath), Is.True, $"Test data file not found: {filePath}");
 
@@ -225,7 +225,7 @@ public abstract class BaseStepDefinition : IDisposable
     {
         ArgumentNullException.ThrowIfNull(filename);
 
-        var filePath = $"TestData\\{filename}";
+        var filePath = Path.Combine("TestData", filename);
         var headers = new Dictionary<string, string>
         {
             { "Content-Type", "application/json" }

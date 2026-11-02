@@ -72,7 +72,7 @@ When Workflow "rcvHttp" is triggered with json file "sample-http-request-content
 | Step | Description |
 |---|---|
 | `When Workflow "name" is triggered` | Invokes the workflow trigger without a body. Works for Recurrence and HTTP triggers. Populates the run cache. |
-| `When Workflow "name" is triggered with file "filename"` | Sends file contents as the trigger body. File must be in `TestData\`. Populates the run cache. |
+| `When Workflow "name" is triggered with file "filename"` | Sends file contents as the trigger body. File must be in `TestData`. Populates the run cache. |
 | `When Workflow "name" is triggered with json file "filename"` | Same as above but sets `Content-Type: application/json`. Populates the run cache. |
 
 ### Action Assertion Steps
@@ -144,7 +144,7 @@ Available when your step definition class inherits from `BaseTransformationStepD
 | `Given A message with a data from the source system` | Initialises an empty `TSource` message object. |
 | `Given A file with a data from the source system` | Alternative phrasing  -  same behaviour. |
 | `Given It has the following source data:` | Fills properties on the message using a `Field`/`Value` table. Supports dot-notation and indexed list notation e.g. `Items[0].Name`. |
-| `Given It has content from a file named "filename"` | Loads the source message by deserialising a JSON file from `TestData\`. |
+| `Given It has content from a file named "filename"` | Loads the source message by deserialising a JSON file from `TestData`. |
 | `When The message payload is put in Storage Account container "container" with file name "filename"` | Serialises the message to JSON and uploads it to blob storage. Generates a correlation ID. |
 | `When The claim-check is put on Service Bus topic "topic"` | Sends a bare claim-check message to a topic. |
 | `When The claim-check is put on Service Bus queue "queue"'` | Sends a bare claim-check message to a queue. |

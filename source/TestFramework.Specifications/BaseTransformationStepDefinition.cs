@@ -54,7 +54,7 @@ public abstract class BaseTransformationStepDefinition<TSource, TDestination> : 
     public async Task GivenFileContent(string filename)
     {
         Assert.That(Message, Is.Not.Null, "File message is null.");
-        var filePath = $"TestData\\{filename}";
+        var filePath = Path.Combine("TestData", filename);
 
         var fileExists = File.Exists(filePath);
         Assert.That(fileExists, Is.True, "File doesn't exist.");
