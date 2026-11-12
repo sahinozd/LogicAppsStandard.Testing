@@ -317,12 +317,15 @@ The following Azure resources are required:
 - **Azure Service Bus** namespace, used to trigger workflows via the claim-check pattern and to validate send-side behaviour. This is complementary if your workflows are e.g. decoupled by Service Bus (or triggered by it)
 - **Azure Storage Account**, used to store message payloads as part of the claim-check pattern. Also complementary, in the examples provided, decoupling happens through Service Bus, via the [claim-check pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/claim-check)
 
-### Entra ID App Registration
+### Identity
 
-Create an App Registration in Microsoft Entra ID with the following:
+The framework needs an identity in Microsoft Entra ID. Choose one of these (see [Authentication modes](#authentication-modes)):
 
-- A **client secret** (used for authentication)
-Assign the following **RBAC roles** to the App Registration on the respective resources:
+- An **App Registration with a client secret** (the default, `AuthenticationMode` `ClientSecret`)
+- The identity behind an **Azure DevOps service connection** that uses workload identity federation (`AzurePipelines`), so no secret is stored anywhere
+- The identity signed in to the **Azure CLI** (`AzureCli`), or whatever **`DefaultAzureCredential`** finds (`Default`), for example in GitHub Actions or on a developer machine
+
+Whichever identity you use, assign the following **RBAC roles** to it on the respective resources. A service connection's usual Contributor role does not include the Storage and Service Bus data roles, so assign those explicitly:
 
 | Resource | Role |
 |---|---|
@@ -356,9 +359,11 @@ The integration test project reads configuration from an `appsettings.json` file
 
 | Key | Purpose |
 |---|---|
-| `ClientId` | The Application (client) ID of the Entra ID App Registration. Used to authenticate against the Azure Management API, Service Bus, and Storage Account. |
-| `ClientSecret` | The client secret of the App Registration. Used together with `ClientId` and `TenantId` to obtain an access token from Entra ID. |
-| `TenantId` | The Entra ID tenant (directory) ID. Identifies which directory to authenticate against. |
+| `AuthenticationMode` | Optional. `ClientSecret` (default), `AzurePipelines`, `AzureCli` or `Default`. See [Authentication modes](#authentication-modes). |
+| `ClientId` | The Application (client) ID of the identity. Used to authenticate against the Azure Management API, Service Bus, and Storage Account. Required for `ClientSecret` and `AzurePipelines`. |
+| `ClientSecret` | The client secret of the App Registration. Used together with `ClientId` and `TenantId` to obtain an access token from Entra ID. Only required for `ClientSecret`. |
+| `TenantId` | The Entra ID tenant (directory) ID. Identifies which directory to authenticate against. Required for `ClientSecret` and `AzurePipelines`; optional for the other modes. |
+| `ServiceConnectionId` | The ID (GUID) of the Azure DevOps service connection. Only required for `AzurePipelines`. |
 | `SubscriptionId` | The Azure subscription ID. Used to construct the Azure Management API resource path for the Logic Apps instance. |
 | `ResourceGroup` | The name of the Azure Resource Group containing the Logic Apps Standard instance. |
 | `LogicAppName` | The name of the Logic Apps Standard resource. Used to scope all workflow queries and trigger calls to the correct app. |
@@ -401,6 +406,71 @@ A typical local file looks like:
   "MaxRetries": "5"
 }
 ```
+
+To run locally without a client secret, set `"AuthenticationMode": "AzureCli"` (or `"Default"`) in `appsettings.local.json` and sign in with `az login`. Your own account then needs the RBAC roles listed above.
+
+### Authentication modes
+
+The `AuthenticationMode` key selects how the framework gets its access tokens. One credential is shared by the Logic App, Storage Account and Service Bus clients, and tokens are cached and refreshed shortly before they expire.
+
+| Mode | Required keys | Use it for |
+|---|---|---|
+| `ClientSecret` (default) | `TenantId`, `ClientId`, `ClientSecret` | An App Registration with a client secret. Existing setups keep working without changes. |
+| `AzurePipelines` | `TenantId`, `ClientId`, `ServiceConnectionId`, and the `SYSTEM_ACCESSTOKEN` environment variable | Azure DevOps pipelines with an Azure Resource Manager service connection that uses **workload identity federation**. Works in any task, including `DotNetCoreCLI@2`, and requests a fresh federated token for every token refresh, so long test runs are fine. |
+| `AzureCli` | (`TenantId` optional) | The identity signed in to the Azure CLI: an `AzureCLI@2` task, `azure/login` in GitHub Actions, or `az login` on a developer machine. |
+| `Default` | (`TenantId` optional) | `DefaultAzureCredential`: tries environment variables, workload identity, managed identity, Visual Studio, Azure CLI and others in turn. |
+
+When a required key is missing, the framework fails at start-up with a message that lists the missing keys.
+
+#### Azure DevOps: use the service connection's identity
+
+1. Open the service connection (Project settings → Service connections). Its authentication method must be **Workload Identity federation** (automatic or manual).
+2. Note the connection's **ID** (the `resourceId` in the URL) and the **client ID** of the identity behind it (shown when you edit the connection, or in Entra ID).
+3. Assign the RBAC roles above to that identity.
+4. Fill in `appsettings.json`:
+
+```json
+{
+  "AuthenticationMode": "AzurePipelines",
+  "TenantId": "#{testFramework_tenant_id}#",
+  "ClientId": "#{testFramework_service_connection_client_id}#",
+  "ServiceConnectionId": "#{testFramework_service_connection_id}#"
+}
+```
+
+5. Pass the job access token to the test task:
+
+```yaml
+- task: DotNetCoreCLI@2
+  displayName: 'Integration tests'
+  inputs:
+    command: 'test'
+    projects: '$(Build.SourcesDirectory)/path/to/YourIntegrationTests.csproj'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
+The job must be authorized to use the service connection. That is automatic when another task in the same job references it with `azureSubscription`, such as the task that enables [mocking](#ismockenabled--putting-an-environment-under-test).
+
+#### GitHub Actions
+
+Add a federated credential for your repository to the App Registration or managed identity, then sign in with `azure/login` and use `AuthenticationMode` `AzureCli`:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: azure/login@v2
+    with:
+      client-id: ${{ vars.AZURE_CLIENT_ID }}
+      tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  - run: dotnet test path/to/YourIntegrationTests.csproj
+```
+
+The Azure CLI cannot renew its federated sign-in, so very long test runs (more than about an hour) can fail with an expired token.
 
 ---
 
@@ -539,7 +609,7 @@ The integration test project reads its configuration from `appsettings.json` usi
 
 Ensure that at minimum the following values are set for the environment under test:
 
-- `ClientId`, `ClientSecret`, `TenantId`  -  the Entra ID App Registration credentials
+- `ClientId`, `ClientSecret`, `TenantId`  -  the Entra ID App Registration credentials, or the keys of another [authentication mode](#authentication-modes) (for example `AzurePipelines`, which needs no secret)
 - `SubscriptionId`, `ResourceGroup`, `LogicAppName`  -  scopes the framework to the correct Logic App
 - `ServiceBusNamespace`, `StorageAccount`  -  point to the Service Bus and Storage Account for the test environment
 
@@ -642,6 +712,13 @@ Execute the integration test project. The framework connects to the deployed Log
     testRunTitle: 'Integration Tests - $(StageName)'
 ```
 
+With `AuthenticationMode` `AzurePipelines`, add the job access token to this task:
+
+```yaml
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
 ---
 
 #### Step 7  -  Disable mocking after the tests
@@ -730,6 +807,11 @@ var azureHttpClient = new AzureHttpClient(
     configuration["TenantId"]!,
     configuration["ClientId"]!,
     configuration["ClientSecret"]!);
+
+// Or, without a client secret, use any Azure.Identity credential, e.g. AzureCliCredential,
+// ManagedIdentityCredential, or the one that matches the AuthenticationMode configuration key:
+// var credential = CredentialFactory.Create(configuration) ?? new DefaultAzureCredential();
+// var azureHttpClient = new AzureHttpClient(httpClientFactory, credential, baseAddress);
 
 var repository = new AzureManagementRepository(azureHttpClient, baseAddress);
 var actionHelper = new ActionHelper(repository);

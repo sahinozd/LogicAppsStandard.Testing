@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Azure.Core;
 using LogicApps.Management.Factory;
 using LogicApps.Management.Helper;
 using LogicApps.Management.Models.Constants;
@@ -98,6 +99,9 @@ public abstract class BaseStepDefinition : IDisposable
     ///   <item><see cref="IServiceBusMessageSender"/> — backed by the <c>"ServiceBus"</c> repository.</item>
     ///   <item><see cref="IActionHelper"/> and <see cref="IActionFactory"/> — backed by the <c>"LogicApp"</c> repository.</item>
     ///   <item>A single shared <see cref="IHttpClientFactory"/> with the three named clients used by the repositories.</item>
+    ///   <item>A <see cref="TokenCredential"/> singleton when the <c>AuthenticationMode</c> configuration key is not
+    ///   <c>ClientSecret</c> (see <see cref="CredentialFactory"/>). A provider that registers its own
+    ///   <see cref="TokenCredential"/> (for example a <c>ManagedIdentityCredential</c>) is used the same way.</item>
     /// </list>
     /// Override registrations before passing the provider to the constructor to substitute any of these services.
     /// </remarks>
@@ -129,6 +133,14 @@ public abstract class BaseStepDefinition : IDisposable
 
         services.AddSingleton<ITokenClient>(sp =>
             new EntraTokenClient(sp.GetRequiredService<IHttpClientFactory>()));
+
+        // Null for AuthenticationMode ClientSecret, which keeps using ITokenClient. One credential is shared by
+        // the Logic App, Storage Account and Service Bus clients.
+        var credential = CredentialFactory.Create(configuration);
+        if (credential is not null)
+        {
+            services.AddSingleton(credential);
+        }
 
         services.AddKeyedSingleton<IAzureHttpClient, AzureHttpClient>(LogicAppRepositoryKey, (sp, _) =>
             CreateAzureHttpClient(sp, configuration, new Uri("https://management.azure.com")));
@@ -166,8 +178,15 @@ public abstract class BaseStepDefinition : IDisposable
     private static AzureHttpClient CreateAzureHttpClient(IServiceProvider sp, IConfiguration configuration, Uri baseAddress)
     {
         var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+        var credential = sp.GetService<TokenCredential>();
+        if (credential is not null)
+        {
+            return new AzureHttpClient(httpClientFactory, credential, baseAddress);
+        }
+
         var tokenClient = sp.GetRequiredService<ITokenClient>();
-        return new AzureHttpClient(httpClientFactory, tokenClient, baseAddress, configuration["TenantId"]!, configuration["ClientId"]!, configuration["ClientSecret"]!);
+        return new AzureHttpClient(httpClientFactory, tokenClient, baseAddress, configuration[StringConstants.TenantId]!, configuration[StringConstants.ClientId]!, configuration[StringConstants.ClientSecret]!);
     }
 
     /// <summary>

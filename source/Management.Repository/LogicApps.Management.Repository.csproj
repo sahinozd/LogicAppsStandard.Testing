@@ -11,7 +11,7 @@
   <PropertyGroup>
 	<PackageId>LogicApps.Management.Repository</PackageId>
 	<Authors>Sahin Ozdemir</Authors>
-	<Description>Azure infrastructure layer for the Logic Apps Standard testing framework. Provides the HTTP client, Entra ID token client, Azure Management repository, Service Bus message builder and sender, and Blob Storage request builder and sender.</Description>
+	<Description>Azure infrastructure layer for the Logic Apps Standard testing framework. Provides the HTTP client (client secret or any Azure.Identity credential, such as an Azure DevOps service connection), Entra ID token client, Azure Management repository, Service Bus message builder and sender, and Blob Storage request builder and sender.</Description>
 	<PackageTags>logicapps;azure;integration;servicebus;blobstorage;repository</PackageTags>
 	<PackageProjectUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/sahinozd/LogicAppsStandard.Testing</RepositoryUrl>
@@ -25,6 +25,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+	  <PackageReference Include="Azure.Identity" Version="1.21.0" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.7" />
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	  <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
 	  <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.7" />
