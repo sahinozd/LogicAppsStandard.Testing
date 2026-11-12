@@ -27,4 +27,18 @@ public static class StringConstants
     public const string BlobStorageApiVersion = "BlobStorageApiVersion";
 
     public const string MaxRetries = "MaxRetries";
+
+    public const string AuthenticationMode = "AuthenticationMode";
+
+    public const string TenantId = "TenantId";
+
+    public const string ClientId = "ClientId";
+
+    public const string ClientSecret = "ClientSecret";
+
+    public const string ServiceConnectionId = "ServiceConnectionId";
+
+    public const string SystemAccessToken = "SystemAccessToken";
+
+    public const string SystemAccessTokenEnvironmentVariable = "SYSTEM_ACCESSTOKEN";
 }

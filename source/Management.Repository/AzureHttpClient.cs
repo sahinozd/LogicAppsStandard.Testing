@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Azure.Core;
 using Newtonsoft.Json;
 
 namespace LogicApps.Management.Repository;
@@ -11,10 +12,10 @@ namespace LogicApps.Management.Repository;
 /// </summary>
 public sealed class AzureHttpClient : IAzureHttpClient
 {
-    private readonly string _scope, _tenantId, _clientId, _clientSecret;
+    private readonly string _scope;
     private readonly Uri _baseAddress;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ITokenClient _tokenClient;
+    private readonly TokenCredential _credential;
 
     // Acquire this before reading or writing _accessToken / _tokenExpiresAt.
     private readonly SemaphoreSlim _authLock = new(1, 1);
@@ -28,7 +29,8 @@ public sealed class AzureHttpClient : IAzureHttpClient
     private bool _disposedValue;
 
     /// <summary>
-    /// Initializes a new instance of the AzureHttpClient class.
+    /// Initializes a new instance of the AzureHttpClient class that authenticates with a client ID and client secret
+    /// (an Entra ID app registration).
     /// </summary>
     /// <param name="httpClientFactory">The HTTP client factory for creating HTTP clients.</param>
     /// <param name="tokenClient">The token client for retrieving OAuth tokens.</param>
@@ -39,11 +41,30 @@ public sealed class AzureHttpClient : IAzureHttpClient
     public AzureHttpClient(IHttpClientFactory httpClientFactory, ITokenClient tokenClient, Uri baseAddress, string tenantId, string clientId, string clientSecret)
     {
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-        _tokenClient = tokenClient ?? throw new ArgumentNullException(nameof(tokenClient));
-        _clientId = clientId ?? throw new ArgumentNullException(nameof(clientId));
-        _clientSecret = clientSecret ?? throw new ArgumentNullException(nameof(clientSecret));
-        _tenantId = tenantId ?? throw new ArgumentNullException(nameof(tenantId));
-        
+        ArgumentNullException.ThrowIfNull(tokenClient);
+        ArgumentNullException.ThrowIfNull(clientId);
+        ArgumentNullException.ThrowIfNull(clientSecret);
+        ArgumentNullException.ThrowIfNull(tenantId);
+        _credential = new TokenClientCredential(tokenClient, tenantId, clientId, clientSecret);
+
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        _baseAddress = baseAddress;
+        _scope = $"{baseAddress}.default";
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the AzureHttpClient class that authenticates with any Azure.Identity
+    /// <see cref="TokenCredential"/>, for example <c>AzurePipelinesCredential</c> (Azure DevOps service connection),
+    /// <c>AzureCliCredential</c>, <c>ManagedIdentityCredential</c> or <c>DefaultAzureCredential</c>.
+    /// </summary>
+    /// <param name="httpClientFactory">The HTTP client factory for creating HTTP clients.</param>
+    /// <param name="credential">The credential used to acquire access tokens.</param>
+    /// <param name="baseAddress">The base address of the Azure API; the token scope is <c>{baseAddress}.default</c>.</param>
+    public AzureHttpClient(IHttpClientFactory httpClientFactory, TokenCredential credential, Uri baseAddress)
+    {
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _credential = credential ?? throw new ArgumentNullException(nameof(credential));
+
         ArgumentNullException.ThrowIfNull(baseAddress);
         _baseAddress = baseAddress;
         _scope = $"{baseAddress}.default";
@@ -230,9 +251,9 @@ public sealed class AzureHttpClient : IAzureHttpClient
                 return;
             }
 
-            var token = await _tokenClient.GetTokenAsync(_clientId, _clientSecret, _scope, _tenantId, cancellationToken).ConfigureAwait(false);
-            _accessToken = token.AccessToken;
-            _tokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn) - TokenExpiryBuffer;
+            var token = await _credential.GetTokenAsync(new TokenRequestContext([_scope]), cancellationToken).ConfigureAwait(false);
+            _accessToken = token.Token;
+            _tokenExpiresAt = token.ExpiresOn - TokenExpiryBuffer;
         }
         finally
         {
